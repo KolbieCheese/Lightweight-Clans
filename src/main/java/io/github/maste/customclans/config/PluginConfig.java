@@ -4,6 +4,7 @@ import io.github.maste.customclans.util.ValidationUtil;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.configuration.file.FileConfiguration;
@@ -40,6 +41,9 @@ public final class PluginConfig {
     private final String clanChatFormat;
     private final boolean clanChatEnabled;
     private final boolean clanChatToggleEnabled;
+    private final boolean discordSrvClanChatRelayEnabled;
+    private final String discordSrvClanChatChannel;
+    private final String discordSrvClanChatFormat;
 
     private PluginConfig(
             int maxClanNameLength,
@@ -51,7 +55,10 @@ public final class PluginConfig {
             String publicChatFormat,
             String clanChatFormat,
             boolean clanChatEnabled,
-            boolean clanChatToggleEnabled
+            boolean clanChatToggleEnabled,
+            boolean discordSrvClanChatRelayEnabled,
+            String discordSrvClanChatChannel,
+            String discordSrvClanChatFormat
     ) {
         this.maxClanNameLength = maxClanNameLength;
         this.maxClanTagLength = maxClanTagLength;
@@ -63,6 +70,9 @@ public final class PluginConfig {
         this.clanChatFormat = clanChatFormat;
         this.clanChatEnabled = clanChatEnabled;
         this.clanChatToggleEnabled = clanChatToggleEnabled;
+        this.discordSrvClanChatRelayEnabled = discordSrvClanChatRelayEnabled;
+        this.discordSrvClanChatChannel = Objects.requireNonNullElse(discordSrvClanChatChannel, "global");
+        this.discordSrvClanChatFormat = Objects.requireNonNullElse(discordSrvClanChatFormat, "[{clan}] {user}: {message}");
     }
 
     public static PluginConfig load(JavaPlugin plugin) {
@@ -98,7 +108,13 @@ public final class PluginConfig {
                 publicChatFormat,
                 clanChatFormat,
                 config.getBoolean("clan-chat-enabled", true),
-                config.getBoolean("clan-chat-toggle-enabled", true)
+                config.getBoolean("clan-chat-toggle-enabled", true),
+                config.getBoolean("discordsrv-clan-chat-relay.enabled", false),
+                config.getString("discordsrv-clan-chat-relay.channel", "global"),
+                config.getString(
+                        "discordsrv-clan-chat-relay.format",
+                        "[{clan}] {user}: {message}"
+                )
         );
     }
 
@@ -140,6 +156,18 @@ public final class PluginConfig {
 
     public boolean clanChatToggleEnabled() {
         return clanChatToggleEnabled;
+    }
+
+    public boolean discordSrvClanChatRelayEnabled() {
+        return discordSrvClanChatRelayEnabled;
+    }
+
+    public String discordSrvClanChatChannel() {
+        return discordSrvClanChatChannel;
+    }
+
+    public String discordSrvClanChatFormat() {
+        return discordSrvClanChatFormat;
     }
 
     public List<String> namedClanColorNames() {

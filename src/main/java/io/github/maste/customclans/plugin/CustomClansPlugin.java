@@ -18,6 +18,9 @@ import io.github.maste.customclans.commands.subcommands.TagSubcommand;
 import io.github.maste.customclans.commands.subcommands.TransferSubcommand;
 import io.github.maste.customclans.config.MessageManager;
 import io.github.maste.customclans.config.PluginConfig;
+import io.github.maste.customclans.integrations.discord.ClanChatRelay;
+import io.github.maste.customclans.integrations.discord.DiscordSrvClanChatRelay;
+import io.github.maste.customclans.integrations.discord.NoopClanChatRelay;
 import io.github.maste.customclans.listeners.AsyncChatListener;
 import io.github.maste.customclans.listeners.PlayerSessionListener;
 import io.github.maste.customclans.repositories.ClanInviteRepository;
@@ -65,8 +68,11 @@ public final class CustomClansPlugin extends JavaPlugin {
         ClanRepository clanRepository = new SQLiteClanRepository(database);
         ClanMemberRepository clanMemberRepository = new SQLiteClanMemberRepository(database);
         ClanInviteRepository clanInviteRepository = new SQLiteClanInviteRepository(database);
+        ClanChatRelay clanChatRelay = pluginConfig.discordSrvClanChatRelayEnabled()
+                ? new DiscordSrvClanChatRelay(this, pluginConfig)
+                : new NoopClanChatRelay();
 
-        this.chatService = new ChatService(this, pluginConfig, clanMemberRepository, messageManager.miniMessage());
+        this.chatService = new ChatService(this, pluginConfig, clanMemberRepository, clanChatRelay, messageManager.miniMessage());
         this.clanService = new ClanService(pluginConfig, clanRepository, clanMemberRepository, chatService);
         this.inviteService = new InviteService(pluginConfig, clanRepository, clanMemberRepository, clanInviteRepository, chatService);
 

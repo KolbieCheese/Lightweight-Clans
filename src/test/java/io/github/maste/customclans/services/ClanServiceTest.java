@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.github.maste.customclans.config.PluginConfig;
+import io.github.maste.customclans.integrations.discord.NoopClanChatRelay;
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.services.InviteService;
@@ -35,7 +36,13 @@ class ClanServiceTest {
     void setUp() throws Exception {
         holder = new SQLiteDatabaseHolder(tempDir);
         PluginConfig pluginConfig = holder.pluginConfig();
-        chatService = new ChatService(holder.plugin(), pluginConfig, holder.memberRepository(), MiniMessage.miniMessage());
+        chatService = new ChatService(
+                holder.plugin(),
+                pluginConfig,
+                holder.memberRepository(),
+                new NoopClanChatRelay(),
+                MiniMessage.miniMessage()
+        );
         clanService = new ClanService(pluginConfig, holder.clanRepository(), holder.memberRepository(), chatService);
         inviteService = new InviteService(
                 pluginConfig,

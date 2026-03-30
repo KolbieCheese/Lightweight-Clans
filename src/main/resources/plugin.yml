@@ -6,6 +6,8 @@ load: POSTWORLD
 authors:
   - maste
 description: Lightweight command-based clans plugin for Paper.
+softdepend:
+  - DiscordSRV
 commands:
   clan:
     description: Root command for the CustomClans plugin.
