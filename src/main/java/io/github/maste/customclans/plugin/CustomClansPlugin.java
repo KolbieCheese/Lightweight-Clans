@@ -34,8 +34,14 @@ import io.github.maste.customclans.repositories.sqlite.SQLiteDatabase;
 import io.github.maste.customclans.services.ChatService;
 import io.github.maste.customclans.services.ClanService;
 import io.github.maste.customclans.services.InviteService;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Stream;
 import java.util.logging.Level;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
@@ -44,6 +50,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public final class CustomClansPlugin extends JavaPlugin {
 
+    private static final int CONFIG_SCHEMA_VERSION = 1;
+    private static final List<String> MIGRATED_FILENAMES = List.of("config.yml", "messages.yml", "clans.db");
     private SQLiteDatabase database;
     private PluginConfig pluginConfig;
     private MessageManager messageManager;
@@ -53,6 +61,7 @@ public final class CustomClansPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        migrateLegacyDataFolderIfNeeded();
         saveDefaultConfig();
 
         this.messageManager = new MessageManager(this);
@@ -171,5 +180,75 @@ public final class CustomClansPlugin extends JavaPlugin {
         chatService = new ChatService(this, pluginConfig, clanMemberRepository, clanChatRelay, messageManager.miniMessage());
         clanService = new ClanService(pluginConfig, clanRepository, clanMemberRepository, chatService);
         inviteService = new InviteService(pluginConfig, clanRepository, clanMemberRepository, clanInviteRepository, chatService);
+    }
+
+    private void migrateLegacyDataFolderIfNeeded() {
+        Path currentDataFolder = getDataFolder().toPath();
+        Path parentFolder = currentDataFolder.getParent();
+        if (parentFolder == null) {
+            return;
+        }
+
+        Path legacyDataFolder = parentFolder.resolve("CustomClans");
+        if (!Files.isDirectory(legacyDataFolder)) {
+            return;
+        }
+
+        Path currentConfigPath = currentDataFolder.resolve("config.yml");
+        boolean firstSimpleClansBoot = !Files.exists(currentConfigPath);
+        int currentSchemaVersion = readConfigSchemaVersion(currentConfigPath);
+        int legacySchemaVersion = readConfigSchemaVersion(legacyDataFolder.resolve("config.yml"));
+        boolean requiresSchemaMigration = legacySchemaVersion > 0
+                && currentSchemaVersion > 0
+                && legacySchemaVersion < currentSchemaVersion;
+
+        if (!firstSimpleClansBoot && !requiresSchemaMigration) {
+            return;
+        }
+
+        try {
+            Files.createDirectories(currentDataFolder);
+            for (String filename : MIGRATED_FILENAMES) {
+                Path source = legacyDataFolder.resolve(filename);
+                if (!Files.exists(source)) {
+                    continue;
+                }
+                Path target = currentDataFolder.resolve(filename);
+                if (Files.exists(target) && !requiresSchemaMigration) {
+                    continue;
+                }
+                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
+            }
+            deleteDirectoryRecursively(legacyDataFolder);
+            getLogger().info("Migrated legacy CustomClans data folder into SimpleClans data folder.");
+        } catch (IOException ioException) {
+            getLogger().log(Level.WARNING, "Failed to migrate legacy CustomClans data folder", ioException);
+        }
+    }
+
+    private int readConfigSchemaVersion(Path configPath) {
+        if (!Files.exists(configPath)) {
+            return 0;
+        }
+        org.bukkit.configuration.file.YamlConfiguration yamlConfiguration = org.bukkit.configuration.file.YamlConfiguration
+                .loadConfiguration(configPath.toFile());
+        return yamlConfiguration.getInt("config-schema-version", 0);
+    }
+
+    private void deleteDirectoryRecursively(Path directory) throws IOException {
+        try (Stream<Path> paths = Files.walk(directory)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
+                try {
+                    Files.deleteIfExists(path);
+                } catch (IOException ioException) {
+                    throw new RuntimeException(ioException);
+                }
+            });
+        } catch (RuntimeException runtimeException) {
+            if (runtimeException.getCause() instanceof IOException ioException) {
+                throw ioException;
+            }
+            throw runtimeException;
+        }
     }
 }
