@@ -118,7 +118,7 @@ public final class ValidationUtil {
             case '4', '@' -> 'a';
             case '5', '$' -> 's';
             case '7' -> 't';
-            case '*' -> 'u';
+            case '!', '*' -> 'i';
             default -> character;
         };
     }
