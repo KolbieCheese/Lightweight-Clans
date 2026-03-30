@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.Set;
 import org.junit.jupiter.api.Test;
 
 class ValidationUtilTest {
@@ -32,5 +33,12 @@ class ValidationUtilTest {
         assertEquals("dark_red", ValidationUtil.normalizeClanColor("Dark Red"));
         assertEquals("#FFAA00", ValidationUtil.normalizeClanColor("#ffaa00"));
         assertEquals("dark red", ValidationUtil.formatClanColorDisplayName("dark_red"));
+    }
+
+    @Test
+    void normalizesModerationInputAndTokens() {
+        assertEquals("admin", ValidationUtil.normalizeForModeration("@dm1n"));
+        assertEquals("fuck", ValidationUtil.normalizeForModeration("f*ck"));
+        assertEquals(Set.of("a", "bitch"), ValidationUtil.moderationTokens("A bi!tch"));
     }
 }

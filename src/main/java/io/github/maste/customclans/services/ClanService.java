@@ -25,6 +25,7 @@ public final class ClanService {
     private final ClanRepository clanRepository;
     private final ClanMemberRepository clanMemberRepository;
     private final ChatService chatService;
+    private final NameModerationPolicy nameModerationPolicy;
 
     public ClanService(
             PluginConfig pluginConfig,
@@ -36,6 +37,7 @@ public final class ClanService {
         this.clanRepository = clanRepository;
         this.clanMemberRepository = clanMemberRepository;
         this.chatService = chatService;
+        this.nameModerationPolicy = new NameModerationPolicy(pluginConfig.nameModerationConfig());
     }
 
     public CompletableFuture<Void> touchPlayerName(Player player) {
@@ -52,6 +54,9 @@ public final class ClanService {
         }
         if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
             return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
+        }
+        if (nameModerationPolicy.isRestrictedFor(player, trimmedName)) {
+            return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-name"));
         }
 
         String derivedTag = ValidationUtil.deriveDefaultTag(trimmedName, pluginConfig.maxClanTagLength());
@@ -132,6 +137,9 @@ public final class ClanService {
         if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
             return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
         }
+        if (nameModerationPolicy.isRestrictedFor(player, trimmedName)) {
+            return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-name"));
+        }
 
         return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
@@ -166,6 +174,9 @@ public final class ClanService {
         }
         if (!ValidationUtil.isValidClanTag(trimmedTag, pluginConfig.maxClanTagLength())) {
             return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-tag"));
+        }
+        if (nameModerationPolicy.isRestrictedFor(player, trimmedTag)) {
+            return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-tag"));
         }
 
         return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {

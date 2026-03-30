@@ -1,5 +1,5 @@
 max-clan-name-length: 24
-max-clan-tag-length: 6
+max-clan-tag-length: 4
 default-clan-tag-color: gold
 invite-expiration-seconds: 300
 max-clan-size: 20
@@ -7,6 +7,35 @@ public-chat-format: "<tag_prefix><white><player_name></white><gray>: </gray><mes
 clan-chat-format: "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>"
 clan-chat-enabled: true
 clan-chat-toggle-enabled: true
+
+name-moderation:
+  enabled: true
+  bypass-permission: "clans.admin.bypass.restricted-names"
+  restricted-clan-names:
+    - "admin"
+    - "moderator"
+    - "owner"
+    - "staff"
+    - "official"
+    - "support"
+  blocked-terms:
+    ass:
+      aliases:
+        - "a$$"
+        - "@ss"
+    bitch:
+      aliases:
+        - "b1tch"
+        - "biitch"
+    fuck:
+      aliases:
+        - "fuk"
+        - "fucc"
+        - "f*ck"
+        - "phuck"
+  allowed-exceptions:
+    - "passion"
+    - "classic"
 
 # Optional DiscordSRV relay for clan chat.
 # Format placeholders: {clan}, {user}, {message}

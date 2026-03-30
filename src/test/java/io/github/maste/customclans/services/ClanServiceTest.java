@@ -222,6 +222,84 @@ class ClanServiceTest {
         assertEquals("gold", clanService.getClanInfo("Crimson Knights").join().value().clan().tagColor());
     }
 
+    @Test
+    void createClanBlocksRestrictedName() {
+        Player player = mockPlayer("Alice");
+
+        ActionResult<Clan> result = clanService.createClan(player, "Admin").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-name", result.messageKey());
+    }
+
+    @Test
+    void createClanBlocksObfuscatedRestrictedName() {
+        Player player = mockPlayer("Alice");
+
+        ActionResult<Clan> result = clanService.createClan(player, "@dmin").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-name", result.messageKey());
+    }
+
+    @Test
+    void createClanAllowsInnocentException() {
+        Player player = mockPlayer("Alice");
+
+        ActionResult<Clan> result = clanService.createClan(player, "Passion").join();
+
+        assertTrue(result.success());
+        assertEquals("create.success", result.messageKey());
+    }
+
+    @Test
+    void renameClanBlocksConfiguredAlias() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.renameClan(president, "f*ck").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-name", result.messageKey());
+    }
+
+    @Test
+    void updateTagBlocksRestrictedTag() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateTag(president, "Fuk").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-tag", result.messageKey());
+    }
+
+    @Test
+    void updateTagRejectsTagsLongerThanFourCharacters() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateTag(president, "ABCDE").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.tag-too-long", result.messageKey());
+        assertEquals("4", result.placeholders().get("max"));
+    }
+
+    @Test
+    void bypassPermissionSkipsRestrictedNameChecks() {
+        Player player = mockPlayer("Alice");
+        when(player.hasPermission("clans.admin.bypass.restricted-names")).thenReturn(true);
+
+        ActionResult<Clan> createResult = clanService.createClan(player, "Admin").join();
+        ActionResult<Void> renameResult = clanService.renameClan(player, "f*ck").join();
+        ActionResult<Void> tagResult = clanService.updateTag(player, "Fuk").join();
+
+        assertTrue(createResult.success());
+        assertTrue(renameResult.success());
+        assertTrue(tagResult.success());
+    }
+
     private Player mockPlayer(String name) {
         Player player = mock(Player.class);
         when(player.getUniqueId()).thenReturn(UUID.nameUUIDFromBytes(name.getBytes(java.nio.charset.StandardCharsets.UTF_8)));
@@ -302,6 +380,20 @@ class ClanServiceTest {
             yaml.set("clan-chat-format", "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>");
             yaml.set("clan-chat-enabled", true);
             yaml.set("clan-chat-toggle-enabled", true);
+            yaml.set("name-moderation.enabled", true);
+            yaml.set("name-moderation.bypass-permission", "clans.admin.bypass.restricted-names");
+            yaml.set("name-moderation.restricted-clan-names", java.util.List.of(
+                    "admin",
+                    "moderator",
+                    "owner",
+                    "staff",
+                    "official",
+                    "support"
+            ));
+            yaml.set("name-moderation.blocked-terms.ass.aliases", java.util.List.of("a$$", "@ss"));
+            yaml.set("name-moderation.blocked-terms.bitch.aliases", java.util.List.of("b1tch", "biitch"));
+            yaml.set("name-moderation.blocked-terms.fuck.aliases", java.util.List.of("fuk", "fucc", "f*ck", "phuck"));
+            yaml.set("name-moderation.allowed-exceptions", java.util.List.of("passion", "classic"));
             when(plugin.getConfig()).thenReturn(yaml);
             return PluginConfig.load(plugin);
         }

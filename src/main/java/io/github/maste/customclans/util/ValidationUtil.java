@@ -1,6 +1,8 @@
 package io.github.maste.customclans.util;
 
 import java.util.Locale;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -11,6 +13,7 @@ public final class ValidationUtil {
     private static final Pattern WORD_PATTERN = Pattern.compile("[A-Za-z0-9]+");
     private static final Pattern ALPHANUMERIC_PATTERN = Pattern.compile("[A-Za-z0-9]");
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#([A-Fa-f0-9]{6})$");
+    private static final Pattern MODERATION_TOKEN_SPLIT_PATTERN = Pattern.compile("[^A-Za-z0-9@$!]+");
 
     private ValidationUtil() {
     }
@@ -78,5 +81,44 @@ public final class ValidationUtil {
     public static String formatClanColorDisplayName(String color) {
         String normalized = normalizeClanColor(color);
         return normalized.startsWith("#") ? normalized : normalized.replace('_', ' ');
+    }
+
+    public static String normalizeForModeration(String value) {
+        if (value == null) {
+            return "";
+        }
+
+        StringBuilder normalized = new StringBuilder();
+        for (char character : value.toLowerCase(Locale.ROOT).toCharArray()) {
+            char mapped = mapObfuscationCharacter(character);
+            if (Character.isLetterOrDigit(mapped)) {
+                normalized.append(mapped);
+            }
+        }
+        return normalized.toString();
+    }
+
+    public static Set<String> moderationTokens(String value) {
+        if (value == null || value.isBlank()) {
+            return Set.of();
+        }
+
+        return MODERATION_TOKEN_SPLIT_PATTERN
+                .splitAsStream(value.toLowerCase(Locale.ROOT))
+                .map(ValidationUtil::normalizeForModeration)
+                .filter(token -> !token.isBlank())
+                .collect(Collectors.toSet());
+    }
+
+    private static char mapObfuscationCharacter(char character) {
+        return switch (character) {
+            case '0' -> 'o';
+            case '1', '!' -> 'i';
+            case '3' -> 'e';
+            case '4', '@' -> 'a';
+            case '5', '$' -> 's';
+            case '7' -> 't';
+            default -> character;
+        };
     }
 }

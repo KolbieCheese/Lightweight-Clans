@@ -34,3 +34,6 @@ permissions:
   clans.admin:
     description: Reserved for future admin and bypass features.
     default: op
+  clans.admin.bypass.restricted-names:
+    description: Bypasses restricted clan name/tag moderation checks.
+    default: op

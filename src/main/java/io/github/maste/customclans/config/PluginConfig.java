@@ -2,11 +2,13 @@ package io.github.maste.customclans.config;
 
 import io.github.maste.customclans.util.ValidationUtil;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -44,6 +46,7 @@ public final class PluginConfig {
     private final boolean discordSrvClanChatRelayEnabled;
     private final String discordSrvClanChatChannel;
     private final String discordSrvClanChatFormat;
+    private final NameModerationConfig nameModerationConfig;
 
     private PluginConfig(
             int maxClanNameLength,
@@ -58,7 +61,8 @@ public final class PluginConfig {
             boolean clanChatToggleEnabled,
             boolean discordSrvClanChatRelayEnabled,
             String discordSrvClanChatChannel,
-            String discordSrvClanChatFormat
+            String discordSrvClanChatFormat,
+            NameModerationConfig nameModerationConfig
     ) {
         this.maxClanNameLength = maxClanNameLength;
         this.maxClanTagLength = maxClanTagLength;
@@ -73,12 +77,14 @@ public final class PluginConfig {
         this.discordSrvClanChatRelayEnabled = discordSrvClanChatRelayEnabled;
         this.discordSrvClanChatChannel = Objects.requireNonNullElse(discordSrvClanChatChannel, "global");
         this.discordSrvClanChatFormat = Objects.requireNonNullElse(discordSrvClanChatFormat, "[{clan}] {user}: {message}");
+        this.nameModerationConfig = nameModerationConfig;
     }
 
     public static PluginConfig load(JavaPlugin plugin) {
         FileConfiguration config = plugin.getConfig();
         int maxClanNameLength = Math.max(3, config.getInt("max-clan-name-length", 24));
-        int maxClanTagLength = Math.max(2, config.getInt("max-clan-tag-length", 6));
+        int configuredTagLength = Math.max(2, config.getInt("max-clan-tag-length", 4));
+        int maxClanTagLength = Math.min(4, configuredTagLength);
         int inviteExpirationSeconds = Math.max(30, config.getInt("invite-expiration-seconds", 300));
         int maxClanSize = Math.max(2, config.getInt("max-clan-size", 20));
         String publicChatFormat = config.getString(
@@ -114,7 +120,8 @@ public final class PluginConfig {
                 config.getString(
                         "discordsrv-clan-chat-relay.format",
                         "[{clan}] {user}: {message}"
-                )
+                ),
+                loadNameModerationConfig(config)
         );
     }
 
@@ -170,6 +177,10 @@ public final class PluginConfig {
         return discordSrvClanChatFormat;
     }
 
+    public NameModerationConfig nameModerationConfig() {
+        return nameModerationConfig;
+    }
+
     public List<String> namedClanColorNames() {
         return new ArrayList<>(NAMED_COLORS.keySet());
     }
@@ -196,5 +207,42 @@ public final class PluginConfig {
 
     public String formatColorDisplayName(String colorName) {
         return ValidationUtil.formatClanColorDisplayName(colorName);
+    }
+
+    private static NameModerationConfig loadNameModerationConfig(FileConfiguration config) {
+        ConfigurationSection section = config.getConfigurationSection("name-moderation");
+        if (section == null) {
+            return new NameModerationConfig(false, "clans.admin.bypass.restricted-names", List.of(), Map.of(), List.of());
+        }
+
+        Map<String, List<String>> blockedTerms = new LinkedHashMap<>();
+        ConfigurationSection blockedTermsSection = section.getConfigurationSection("blocked-terms");
+        if (blockedTermsSection != null) {
+            for (String key : blockedTermsSection.getKeys(false)) {
+                ConfigurationSection termSection = blockedTermsSection.getConfigurationSection(key);
+                List<String> aliases = termSection == null ? List.of() : termSection.getStringList("aliases");
+                blockedTerms.put(key, List.copyOf(aliases));
+            }
+        }
+
+        return new NameModerationConfig(
+                section.getBoolean("enabled", true),
+                Objects.requireNonNullElse(
+                        section.getString("bypass-permission"),
+                        "clans.admin.bypass.restricted-names"
+                ),
+                List.copyOf(section.getStringList("restricted-clan-names")),
+                Map.copyOf(blockedTerms),
+                List.copyOf(section.getStringList("allowed-exceptions"))
+        );
+    }
+
+    public record NameModerationConfig(
+            boolean enabled,
+            String bypassPermission,
+            List<String> restrictedClanNames,
+            Map<String, List<String>> blockedTerms,
+            List<String> allowedExceptions
+    ) {
     }
 }

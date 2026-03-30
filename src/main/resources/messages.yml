@@ -40,6 +40,8 @@ validation:
   name-too-long: "<prefix><red>Clan names cannot be longer than <max> characters.</red>"
   invalid-tag: "<prefix><red>Clan tags may only use letters and numbers.</red>"
   tag-too-long: "<prefix><red>Clan tags cannot be longer than <max> characters.</red>"
+  restricted-name: "<prefix><red>That clan name is not allowed by server moderation rules.</red>"
+  restricted-tag: "<prefix><red>That clan tag is not allowed by server moderation rules.</red>"
   invalid-color: "<prefix><red><color> is not a valid clan color. Use a named Minecraft color like <white>gold</white> or <white>dark_red</white>, or use <white>#RRGGBB</white>.</red>"
 
 help:
