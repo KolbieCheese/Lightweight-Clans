@@ -79,12 +79,13 @@ class ChatServiceTest {
                 .thenReturn(CompletableFuture.completedFuture(Optional.of(snapshot)));
 
         chatService.refreshSnapshot(playerUuid).join();
-        Component rendered = chatService.renderPublicChat(player, Component.text("hello"));
+        Component displayName = Component.text("Alicia").color(NamedTextColor.LIGHT_PURPLE);
+        Component rendered = chatService.renderPublicChat(player, displayName, Component.text("hello"));
 
-        assertEquals("[CK] Alice: hello", PlainTextComponentSerializer.plainText().serialize(rendered));
+        assertEquals("[CK] Alicia: hello", PlainTextComponentSerializer.plainText().serialize(rendered));
         assertEquals(4, rendered.children().size());
         assertEquals(net.kyori.adventure.text.format.TextColor.fromHexString("#FFAA00"), rendered.children().get(0).style().color());
-        assertEquals(NamedTextColor.WHITE, rendered.children().get(1).style().color());
+        assertEquals(NamedTextColor.LIGHT_PURPLE, rendered.children().get(1).style().color());
         assertEquals(NamedTextColor.GRAY, rendered.children().get(2).style().color());
         assertNull(rendered.children().get(3).style().color());
     }

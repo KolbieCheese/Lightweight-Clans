@@ -47,7 +47,7 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
 - `clans.invite` (default `true`): `/clan invite`
 - `clans.chat` (default `true`): `/clan chat`, `/clan chat toggle`
 - `clans.lookup` (default `true`): `/clan get <clan name> info|members`
-- `clans.manage` (default `op`): `/clan rename`, `/clan tag`, `/clan color`, `/clan transfer`, `/clan kick`, `/clan disband`
+- `clans.manage` (default `true`): `/clan rename`, `/clan tag`, `/clan color`, `/clan transfer`, `/clan kick`, `/clan disband`
 - `clans.admin` (default `op`): reserved for future admin or bypass features
 
 `clans.manage` only allows a player to attempt management commands. President-only actions are still enforced in the service layer, so a non-President cannot rename, retag, recolor, transfer, kick, or disband even if they somehow receive the permission node.
@@ -92,7 +92,7 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
 
 ## Chat Formatting
 
-Public chat uses `AsyncChatEvent` with a custom renderer. The plugin creates a safe Adventure `Component` for the clan tag and injects it into the configured MiniMessage template through component placeholders. This keeps clan colors limited to the tag and prevents tag values from injecting MiniMessage formatting into the rest of the line.
+Public chat uses `AsyncChatEvent` with a custom renderer. The plugin creates a safe Adventure `Component` for the clan tag and injects it into the configured MiniMessage template through component placeholders. It also uses the renderer-provided display name component for player names, which preserves nickname/display-name plugin compatibility. This keeps clan colors limited to the tag and prevents tag values from injecting MiniMessage formatting into the rest of the line.
 
 Clan chat supports both `/clan chat <message>` and `/clan chat toggle`. The `clan-chat-enabled` config option disables clan chat completely, while `clan-chat-toggle-enabled` only controls whether players can keep clan chat mode turned on for normal chat. Toggle mode is session-only and is stored in memory, so it clears on logout or restart. When enabled, the plugin intercepts `AsyncChatEvent`, cancels the public broadcast, and forwards the message only to online clan members.
 

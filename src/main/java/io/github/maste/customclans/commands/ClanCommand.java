@@ -68,6 +68,7 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
             String token = args[0].toLowerCase(Locale.ROOT);
             return subcommands.values().stream()
                     .filter(subcommand -> sender.hasPermission(subcommand.permission()))
+                    .filter(subcommand -> !subcommand.playerOnly() || sender instanceof Player)
                     .map(ClanSubcommand::name)
                     .filter(name -> name.startsWith(token))
                     .sorted()
@@ -80,6 +81,9 @@ public final class ClanCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!sender.hasPermission(subcommand.permission())) {
+            return List.of();
+        }
+        if (subcommand.playerOnly() && !(sender instanceof Player)) {
             return List.of();
         }
 
