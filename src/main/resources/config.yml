@@ -23,16 +23,131 @@ name-moderation:
       aliases:
         - "a$$"
         - "@ss"
+        - "a$s"
+    damn:
+      aliases:
+        - "d4mn"
+    hell:
+      aliases:
+        - "h3ll"
+    crap:
+      aliases:
+        - "cr4p"
+    piss:
+      aliases:
+        - "p1ss"
+    dick:
+      aliases:
+        - "d1ck"
+        - "d!ck"
+    cock:
+      aliases:
+        - "c0ck"
+    pussy:
+      aliases:
+        - "pu$$y"
+    slut:
+      aliases:
+        - "slvt"
+    whore:
+      aliases:
+        - "wh0re"
+    shit:
+      aliases:
+        - "sh1t"
+        - "sh!t"
+        - "$hit"
+        - "shyt"
+        - "sht"
     bitch:
       aliases:
         - "b1tch"
+        - "b!tch"
         - "biitch"
+        - "b*tch"
+    bastard:
+      aliases:
+        - "b4stard"
     fuck:
       aliases:
         - "fuk"
         - "fucc"
         - "f*ck"
         - "phuck"
+        - "f0ck"
+        - "f@ck"
+        - "f.u.c.k"
+    sex:
+      aliases:
+        - "s3x"
+    porn:
+      aliases:
+        - "p0rn"
+    cum:
+      aliases:
+        - "c*m"
+    hentai:
+      aliases:
+        - "h3ntai"
+    rape:
+      aliases:
+        - "r4pe"
+    suicide:
+      aliases:
+        - "su1cide"
+    kill:
+      aliases:
+        - "k1ll"
+    nigger:
+      aliases:
+        - "n1gger"
+        - "n!gger"
+        - "n1gg3r"
+        - "nigg3r"
+        - "n1gga"
+        - "nigga"
+        - "n!gga"
+    faggot:
+      aliases:
+        - "f4ggot"
+        - "f@g"
+        - "fa66ot"
+        - "fag"
+        - "f@got"
+    retard:
+      aliases:
+        - "ret4rd"
+        - "r3tard"
+    chink:
+      aliases:
+        - "ch1nk"
+    spic:
+      aliases:
+        - "sp1c"
+    kike:
+      aliases:
+        - "k1ke"
+    dyke:
+      aliases:
+        - "d1ke"
+    tranny:
+      aliases:
+        - "tr4nny"
+        - "tr@nny"
+    admin:
+      aliases: []
+    moderator:
+      aliases:
+        - "mod"
+    owner:
+      aliases: []
+    staff:
+      aliases: []
+    developer:
+      aliases:
+        - "dev"
+    official:
+      aliases: []
   allowed-exceptions:
     - "passion"
     - "classic"
