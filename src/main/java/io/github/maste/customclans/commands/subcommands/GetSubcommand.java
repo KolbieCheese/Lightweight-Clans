@@ -80,6 +80,10 @@ public final class GetSubcommand extends AbstractClanSubcommand {
                 Placeholder.unparsed("tag", clanInfo.clan().tag()),
                 Placeholder.unparsed("color", pluginConfig.formatColorDisplayName(clanInfo.clan().tagColor())),
                 Placeholder.unparsed("president", clanInfo.presidentName()),
+                Placeholder.unparsed(
+                        "description",
+                        clanInfo.clan().description().isBlank() ? "No description set." : clanInfo.clan().description()
+                ),
                 Placeholder.unparsed("member_count", String.valueOf(clanInfo.members().size())),
                 Placeholder.unparsed("max_members", String.valueOf(pluginConfig.maxClanSize())),
                 Placeholder.unparsed("online_count", String.valueOf(onlineCount))

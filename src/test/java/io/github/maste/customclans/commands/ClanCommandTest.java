@@ -15,11 +15,13 @@ import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
 import io.github.maste.customclans.commands.subcommands.DenySubcommand;
 import io.github.maste.customclans.commands.subcommands.DisbandSubcommand;
+import io.github.maste.customclans.commands.subcommands.DescriptionSubcommand;
 import io.github.maste.customclans.commands.subcommands.GetSubcommand;
 import io.github.maste.customclans.commands.subcommands.HelpSubcommand;
 import io.github.maste.customclans.commands.subcommands.InviteSubcommand;
 import io.github.maste.customclans.commands.subcommands.KickSubcommand;
 import io.github.maste.customclans.commands.subcommands.LeaveSubcommand;
+import io.github.maste.customclans.commands.subcommands.ListSubcommand;
 import io.github.maste.customclans.commands.subcommands.RenameSubcommand;
 import io.github.maste.customclans.commands.subcommands.ReloadSubcommand;
 import io.github.maste.customclans.commands.subcommands.TagSubcommand;
@@ -134,6 +136,20 @@ class ClanCommandTest {
     @Test
     void getRejectsUnknownView() {
         new GetSubcommand(plugin, messages, clanService, pluginConfig).execute(sender, new String[]{"Azure", "stats"});
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void descriptionRequiresContent() {
+        new DescriptionSubcommand(plugin, messages, clanService).execute(sender, new String[0]);
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void listRejectsExtraArguments() {
+        new ListSubcommand(plugin, messages, clanService).execute(sender, new String[]{"extra"});
 
         verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
     }

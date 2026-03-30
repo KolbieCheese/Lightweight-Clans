@@ -2,7 +2,9 @@ package io.github.maste.customclans.repositories;
 
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanCreateResult;
+import io.github.maste.customclans.models.ClanListEntry;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +29,10 @@ public interface ClanRepository {
     CompletableFuture<Void> updateClanTag(long clanId, String newTag);
 
     CompletableFuture<Void> updateClanColor(long clanId, String newColor);
+
+    CompletableFuture<Void> updateClanDescription(long clanId, String description);
+
+    CompletableFuture<List<ClanListEntry>> listActiveClans();
 
     CompletableFuture<Boolean> transferLeadership(long clanId, UUID currentPresidentUuid, UUID newPresidentUuid);
 

@@ -21,6 +21,7 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
   - `/clan help`
   - `/clan get <clan name> info`
   - `/clan get <clan name> members`
+  - `/clan list`
 - General player actions:
   - `/clan create <clan name>`
   - `/clan accept <clan name>`
@@ -32,6 +33,7 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
   - `/clan chat toggle`
 - President-only actions:
   - `/clan rename <new clan name>`
+  - `/clan description <text>`
   - `/clan tag <new tag>`
   - `/clan color <named color|#RRGGBB>`
   - `/clan transfer <player>`
@@ -47,7 +49,7 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
 - `clans.invite` (default `true`): `/clan invite`
 - `clans.chat` (default `true`): `/clan chat`, `/clan chat toggle`
 - `clans.lookup` (default `true`): `/clan get <clan name> info|members`
-- `clans.manage` (default `true`): `/clan rename`, `/clan tag`, `/clan color`, `/clan transfer`, `/clan kick`, `/clan disband`
+- `clans.manage` (default `true`): `/clan rename`, `/clan description`, `/clan tag`, `/clan color`, `/clan transfer`, `/clan kick`, `/clan disband`
 - `clans.admin` (default `op`): reserved for future admin or bypass features
 
 `clans.manage` only allows a player to attempt management commands. President-only actions are still enforced in the service layer, so a non-President cannot rename, retag, recolor, transfer, kick, or disband even if they somehow receive the permission node.

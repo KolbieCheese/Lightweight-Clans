@@ -3,6 +3,7 @@ package io.github.maste.customclans.services;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanInfo;
+import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanMember;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
@@ -229,6 +230,37 @@ public final class ClanService {
                             null
                     )));
         });
+    }
+
+    public CompletableFuture<ActionResult<Void>> updateDescription(Player player, String description) {
+        String trimmedDescription = description.trim();
+        if (trimmedDescription.length() > 500) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    "validation.description-too-long",
+                    Map.of("max", "500")
+            ));
+        }
+
+        return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
+            if (!snapshotResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        snapshotResult.messageKey(),
+                        snapshotResult.placeholders()
+                ));
+            }
+
+            PlayerClanSnapshot snapshot = snapshotResult.value();
+            return clanRepository.updateClanDescription(snapshot.clanId(), trimmedDescription).thenCompose(unused ->
+                    refreshClanSnapshots(snapshot.clanId()).thenApply(refreshUnused -> ActionResult.success(
+                            "description.success",
+                            Map.of("description", trimmedDescription),
+                            null
+                    )));
+        });
+    }
+
+    public CompletableFuture<ActionResult<List<ClanListEntry>>> listClans() {
+        return clanRepository.listActiveClans().thenApply(clans -> ActionResult.success("", clans));
     }
 
     public CompletableFuture<ActionResult<ClanMember>> kickMember(Player player, String targetName) {

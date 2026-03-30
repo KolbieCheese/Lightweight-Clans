@@ -2,6 +2,7 @@ package io.github.maste.customclans.repositories.sqlite;
 
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanInvite;
+import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanMember;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
@@ -21,8 +22,18 @@ final class SQLiteMapper {
                 resultSet.getString("name"),
                 resultSet.getString("tag"),
                 resultSet.getString("tag_color"),
+                resultSet.getString("description"),
                 UUID.fromString(resultSet.getString("president_uuid")),
                 Instant.ofEpochMilli(resultSet.getLong("created_at"))
+        );
+    }
+
+    static ClanListEntry mapClanListEntry(ResultSet resultSet) throws SQLException {
+        return new ClanListEntry(
+                resultSet.getString("name"),
+                resultSet.getString("tag"),
+                resultSet.getString("tag_color"),
+                resultSet.getInt("member_count")
         );
     }
 

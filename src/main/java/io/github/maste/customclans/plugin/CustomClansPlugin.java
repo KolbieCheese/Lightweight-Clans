@@ -7,12 +7,14 @@ import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
 import io.github.maste.customclans.commands.subcommands.CreateSubcommand;
 import io.github.maste.customclans.commands.subcommands.DenySubcommand;
+import io.github.maste.customclans.commands.subcommands.DescriptionSubcommand;
 import io.github.maste.customclans.commands.subcommands.DisbandSubcommand;
 import io.github.maste.customclans.commands.subcommands.GetSubcommand;
 import io.github.maste.customclans.commands.subcommands.HelpSubcommand;
 import io.github.maste.customclans.commands.subcommands.InviteSubcommand;
 import io.github.maste.customclans.commands.subcommands.KickSubcommand;
 import io.github.maste.customclans.commands.subcommands.LeaveSubcommand;
+import io.github.maste.customclans.commands.subcommands.ListSubcommand;
 import io.github.maste.customclans.commands.subcommands.RenameSubcommand;
 import io.github.maste.customclans.commands.subcommands.ReloadSubcommand;
 import io.github.maste.customclans.commands.subcommands.TagSubcommand;
@@ -110,11 +112,13 @@ public final class CustomClansPlugin extends JavaPlugin {
                 new ChatSubcommand(this, messageManager, chatService),
                 new InviteSubcommand(this, messageManager, inviteService, pluginConfig),
                 new RenameSubcommand(this, messageManager, clanService),
+                new DescriptionSubcommand(this, messageManager, clanService),
                 new TagSubcommand(this, messageManager, clanService),
                 new ColorSubcommand(this, messageManager, clanService, pluginConfig),
                 new KickSubcommand(this, messageManager, clanService, chatService),
                 new TransferSubcommand(this, messageManager, clanService, chatService),
                 new DisbandSubcommand(this, messageManager, clanService),
+                new ListSubcommand(this, messageManager, clanService),
                 new ReloadSubcommand(this, messageManager)
         );
 
