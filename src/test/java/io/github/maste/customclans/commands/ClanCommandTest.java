@@ -175,7 +175,7 @@ class ClanCommandTest {
     @Test
     void tabCompletionHidesPlayerOnlyCommandsFromConsole() {
         CommandSender console = mock(CommandSender.class);
-        when(console.hasPermission(any())).thenReturn(true);
+        when(console.hasPermission(anyString())).thenReturn(true);
 
         ClanCommand clanCommand = new ClanCommand(
                 messages,
@@ -198,7 +198,7 @@ class ClanCommandTest {
     @Test
     void tabCompletionStillShowsPlayerOnlyCommandsForPlayers() {
         Player player = mock(Player.class);
-        when(player.hasPermission(any())).thenReturn(true);
+        when(player.hasPermission(anyString())).thenReturn(true);
 
         ClanCommand clanCommand = new ClanCommand(
                 messages,
