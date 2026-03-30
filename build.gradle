@@ -5,9 +5,28 @@ plugins {
 
 group = 'io.github.maste'
 def baseVersion = providers.gradleProperty('pluginBaseVersion').get()
+def incrementVersion = { String versionString, int buildNumber ->
+    def parts = versionString.tokenize('.')
+    if (parts.size() != 3 || !parts.every { it.isInteger() }) {
+        throw new GradleException("pluginBaseVersion must follow numeric major.minor.patch format, got '${versionString}'")
+    }
+
+    int major = parts[0].toInteger()
+    int minor = parts[1].toInteger()
+    int patch = parts[2].toInteger() + buildNumber
+
+    minor += patch.intdiv(10)
+    patch = patch % 10
+
+    major += minor.intdiv(10)
+    minor = minor % 10
+
+    return "${major}.${minor}.${patch}"
+}
+
 def pluginVersion = providers.gradleProperty('pluginVersion')
     .orElse(providers.environmentVariable('PLUGIN_VERSION'))
-    .orElse(providers.environmentVariable('GITHUB_RUN_NUMBER').map { "${baseVersion}-build.${it}" })
+    .orElse(providers.environmentVariable('GITHUB_RUN_NUMBER').map { incrementVersion(baseVersion, it.toInteger()) })
     .orElse("${baseVersion}-SNAPSHOT")
     .get()
 
