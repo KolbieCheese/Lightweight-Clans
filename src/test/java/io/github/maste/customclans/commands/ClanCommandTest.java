@@ -141,6 +141,28 @@ class ClanCommandTest {
     }
 
     @Test
+    void getTabCompletionSuggestsNextClanWordForMultiWordNames() {
+        when(clanService.suggestClanNameWords(any(String[].class))).thenReturn(List.of("Guard"));
+        when(clanService.clanNameExists("Azure")).thenReturn(false);
+        when(clanService.clanNameExists("Azure ")).thenReturn(false);
+
+        List<String> suggestions = new GetSubcommand(plugin, messages, clanService, pluginConfig)
+                .tabComplete(sender, new String[]{"Azure", ""});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("Guard"), suggestions);
+    }
+
+    @Test
+    void getTabCompletionSuggestsViewAfterExactClanName() {
+        when(clanService.clanNameExists("Azure Guard")).thenReturn(true);
+
+        List<String> suggestions = new GetSubcommand(plugin, messages, clanService, pluginConfig)
+                .tabComplete(sender, new String[]{"Azure", "Guard", ""});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("info", "members"), suggestions);
+    }
+
+    @Test
     void descriptionRequiresContent() {
         new DescriptionSubcommand(plugin, messages, clanService).execute(sender, new String[0]);
 

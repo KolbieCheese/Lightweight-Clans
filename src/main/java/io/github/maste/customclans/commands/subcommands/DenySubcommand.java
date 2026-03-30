@@ -32,9 +32,6 @@ public final class DenySubcommand extends AbstractClanSubcommand {
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
-        if (args.length != 1) {
-            return List.of();
-        }
-        return clanService.suggestClanNames(args[0]);
+        return clanService.suggestClanNameWords(args);
     }
 }

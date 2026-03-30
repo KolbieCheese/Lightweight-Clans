@@ -1,6 +1,9 @@
 package io.github.maste.customclans.config;
 
 import java.io.File;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import net.kyori.adventure.text.Component;
@@ -29,7 +32,21 @@ public final class MessageManager {
         if (!messageFile.exists()) {
             plugin.saveResource("messages.yml", false);
         }
-        this.configuration = YamlConfiguration.loadConfiguration(messageFile);
+
+        YamlConfiguration loadedConfiguration = YamlConfiguration.loadConfiguration(messageFile);
+        try (InputStream defaultsStream = plugin.getResource("messages.yml")) {
+            if (defaultsStream != null) {
+                YamlConfiguration defaultConfiguration = YamlConfiguration.loadConfiguration(
+                        new InputStreamReader(defaultsStream, StandardCharsets.UTF_8)
+                );
+                loadedConfiguration.setDefaults(defaultConfiguration);
+                loadedConfiguration.options().copyDefaults(true);
+            }
+        } catch (Exception exception) {
+            plugin.getLogger().warning("Failed to load default messages.yml from plugin resources: " + exception.getMessage());
+        }
+
+        this.configuration = loadedConfiguration;
     }
 
     public MiniMessage miniMessage() {
