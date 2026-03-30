@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.github.maste.customclans.config.PluginConfig;
+import io.github.maste.customclans.integrations.discord.NoopClanChatRelay;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
 import io.github.maste.customclans.repositories.ClanMemberRepository;
@@ -31,6 +32,7 @@ class ChatServiceTest {
                 mock(JavaPlugin.class),
                 createPluginConfig(false, true),
                 mock(ClanMemberRepository.class),
+                new NoopClanChatRelay(),
                 MiniMessage.miniMessage()
         );
 
@@ -45,6 +47,7 @@ class ChatServiceTest {
                 mock(JavaPlugin.class),
                 createPluginConfig(false, true),
                 mock(ClanMemberRepository.class),
+                new NoopClanChatRelay(),
                 MiniMessage.miniMessage()
         );
 
@@ -62,6 +65,7 @@ class ChatServiceTest {
                 plugin,
                 createPluginConfig(true, true),
                 clanMemberRepository,
+                new NoopClanChatRelay(),
                 MiniMessage.miniMessage()
         );
 
@@ -102,6 +106,9 @@ class ChatServiceTest {
         yaml.set("clan-chat-format", "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>");
         yaml.set("clan-chat-enabled", clanChatEnabled);
         yaml.set("clan-chat-toggle-enabled", clanChatToggleEnabled);
+        yaml.set("discordsrv-clan-chat-relay.enabled", false);
+        yaml.set("discordsrv-clan-chat-relay.channel", "global");
+        yaml.set("discordsrv-clan-chat-relay.format", "[{clan}] {user}: {message}");
         when(plugin.getConfig()).thenReturn(yaml);
         return PluginConfig.load(plugin);
     }

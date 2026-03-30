@@ -7,3 +7,10 @@ public-chat-format: "<tag_prefix><white><player_name></white><gray>: </gray><mes
 clan-chat-format: "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>"
 clan-chat-enabled: true
 clan-chat-toggle-enabled: true
+
+# Optional DiscordSRV relay for clan chat.
+# Format placeholders: {clan}, {user}, {message}
+discordsrv-clan-chat-relay:
+  enabled: false
+  channel: "global"
+  format: "[{clan}] {user}: {message}"

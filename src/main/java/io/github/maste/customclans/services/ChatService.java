@@ -1,6 +1,7 @@
 package io.github.maste.customclans.services;
 
 import io.github.maste.customclans.config.PluginConfig;
+import io.github.maste.customclans.integrations.discord.ClanChatRelay;
 import io.github.maste.customclans.models.ClanMember;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
 import io.github.maste.customclans.repositories.ClanMemberRepository;
@@ -20,6 +21,7 @@ import java.util.concurrent.ConcurrentMap;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -28,6 +30,7 @@ public final class ChatService {
     private final JavaPlugin plugin;
     private final PluginConfig pluginConfig;
     private final ClanMemberRepository clanMemberRepository;
+    private final ClanChatRelay clanChatRelay;
     private final MiniMessage miniMessage;
     private final ConcurrentMap<UUID, PlayerClanSnapshot> snapshots;
     private final Set<UUID> clanChatToggles;
@@ -36,11 +39,13 @@ public final class ChatService {
             JavaPlugin plugin,
             PluginConfig pluginConfig,
             ClanMemberRepository clanMemberRepository,
+            ClanChatRelay clanChatRelay,
             MiniMessage miniMessage
     ) {
         this.plugin = plugin;
         this.pluginConfig = pluginConfig;
         this.clanMemberRepository = clanMemberRepository;
+        this.clanChatRelay = clanChatRelay;
         this.miniMessage = miniMessage;
         this.snapshots = new ConcurrentHashMap<>();
         this.clanChatToggles = ConcurrentHashMap.newKeySet();
@@ -116,12 +121,20 @@ public final class ChatService {
         if (rawMessage == null || rawMessage.isBlank()) {
             return CompletableFuture.completedFuture(ActionResult.failure("chat.no-message"));
         }
-        return sendClanChat(sender, Component.text(rawMessage));
+        return sendClanChat(sender, Component.text(rawMessage), rawMessage);
     }
 
     public CompletableFuture<ActionResult<Void>> sendClanChat(Player sender, Component message) {
+        String rawMessage = PlainTextComponentSerializer.plainText().serialize(message).trim();
+        return sendClanChat(sender, message, rawMessage);
+    }
+
+    private CompletableFuture<ActionResult<Void>> sendClanChat(Player sender, Component message, String rawMessage) {
         if (!pluginConfig.clanChatEnabled()) {
             return CompletableFuture.completedFuture(ActionResult.failure("chat.unavailable"));
+        }
+        if (rawMessage == null || rawMessage.isBlank()) {
+            return CompletableFuture.completedFuture(ActionResult.failure("chat.no-message"));
         }
         return getOrLoadSnapshot(sender.getUniqueId()).thenCompose(optionalSnapshot -> {
             if (optionalSnapshot.isEmpty()) {
@@ -130,7 +143,7 @@ public final class ChatService {
 
             PlayerClanSnapshot snapshot = optionalSnapshot.get();
             return clanMemberRepository.findByClanId(snapshot.clanId()).thenApply(members -> {
-                SchedulerUtil.runSync(plugin, () -> broadcastClanMessage(sender, snapshot, message, members));
+                SchedulerUtil.runSync(plugin, () -> broadcastClanMessage(sender, snapshot, message, rawMessage, members));
                 return ActionResult.success("", null);
             });
         });
@@ -190,6 +203,7 @@ public final class ChatService {
             Player sender,
             PlayerClanSnapshot snapshot,
             Component message,
+            String rawMessage,
             List<ClanMember> members
     ) {
         Component clanChatMessage = MiniMessageUtil.renderChatLine(
@@ -205,6 +219,9 @@ public final class ChatService {
                 .filter(player -> player != null && player.isOnline())
                 .sorted(Comparator.comparing(Player::getName, String.CASE_INSENSITIVE_ORDER))
                 .forEach(player -> player.sendMessage(clanChatMessage));
+
+        // External relay is intentionally isolated from in-game chat delivery.
+        clanChatRelay.relay(sender, snapshot, rawMessage);
     }
 
     private Component tagPrefix(PlayerClanSnapshot snapshot) {
