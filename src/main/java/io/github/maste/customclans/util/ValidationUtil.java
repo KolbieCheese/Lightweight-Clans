@@ -113,11 +113,12 @@ public final class ValidationUtil {
     private static char mapObfuscationCharacter(char character) {
         return switch (character) {
             case '0' -> 'o';
-            case '1', '!' -> 'i';
+            case '1' -> 'i';
             case '3' -> 'e';
             case '4', '@' -> 'a';
             case '5', '$' -> 's';
             case '7' -> 't';
+            case '*' -> 'u';
             default -> character;
         };
     }
