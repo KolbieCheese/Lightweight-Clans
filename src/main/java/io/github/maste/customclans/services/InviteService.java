@@ -3,7 +3,6 @@ package io.github.maste.customclans.services;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanInvite;
-import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
 import io.github.maste.customclans.repositories.ClanInviteRepository;
 import io.github.maste.customclans.repositories.ClanMemberRepository;
@@ -45,7 +44,7 @@ public final class InviteService {
             return CompletableFuture.completedFuture(ActionResult.failure("common.player-offline"));
         }
 
-        return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
+        return requireMember(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
                 return CompletableFuture.completedFuture(ActionResult.failure(
                         snapshotResult.messageKey(),
@@ -81,10 +80,6 @@ public final class InviteService {
                                 Map.of("player", target.getName(), "clan", snapshot.clanName()),
                                 invite
                         );
-                        case ACTIVE_INVITE_EXISTS -> ActionResult.failure(
-                                "invite.already-invited",
-                                Map.of("player", target.getName())
-                        );
                         case DUPLICATE_FROM_SAME_CLAN -> ActionResult.failure(
                                 "invite.duplicate",
                                 Map.of("player", target.getName())
@@ -95,46 +90,68 @@ public final class InviteService {
         });
     }
 
-    public CompletableFuture<ActionResult<Clan>> acceptInvite(Player player) {
-        return clanInviteRepository.acceptInvite(
-                player.getUniqueId(),
-                player.getName(),
-                pluginConfig.maxClanSize(),
-                Instant.now()
-        ).thenCompose(result -> switch (result.status()) {
-            case ACCEPTED -> chatService.refreshSnapshot(player.getUniqueId()).thenApply(unused -> ActionResult.success(
-                    "accept.success",
-                    Map.of("clan", result.clan().name()),
-                    result.clan()
-            ));
-            case NO_INVITE -> CompletableFuture.completedFuture(ActionResult.failure("accept.no-invite"));
-            case EXPIRED -> CompletableFuture.completedFuture(ActionResult.failure("accept.expired"));
-            case CLAN_MISSING -> CompletableFuture.completedFuture(ActionResult.failure("accept.clan-missing"));
-            case ALREADY_IN_CLAN -> chatService.refreshSnapshot(player.getUniqueId())
-                    .thenApply(unused -> ActionResult.<Clan>failure("accept.already-in-clan"));
-            case CLAN_FULL -> CompletableFuture.completedFuture(ActionResult.failure("accept.clan-full"));
+    public CompletableFuture<ActionResult<Clan>> acceptInvite(Player player, String clanName) {
+        String trimmedName = clanName.trim();
+        return clanRepository.findByName(trimmedName).thenCompose(optionalClan -> {
+            if (optionalClan.isEmpty()) {
+                return CompletableFuture.completedFuture(ActionResult.failure("accept.no-invite"));
+            }
+
+            Clan clan = optionalClan.get();
+            return clanInviteRepository.acceptInvite(
+                    clan.id(),
+                    player.getUniqueId(),
+                    player.getName(),
+                    pluginConfig.maxClanSize(),
+                    Instant.now()
+            ).thenCompose(result -> switch (result.status()) {
+                case ACCEPTED -> chatService.refreshSnapshot(player.getUniqueId()).thenApply(unused -> ActionResult.success(
+                        "accept.success",
+                        Map.of("clan", result.clan().name()),
+                        result.clan()
+                ));
+                case NO_INVITE -> CompletableFuture.completedFuture(ActionResult.failure("accept.no-invite"));
+                case EXPIRED -> CompletableFuture.completedFuture(ActionResult.failure(
+                        "accept.expired",
+                        Map.of("clan", clan.name())
+                ));
+                case CLAN_MISSING -> CompletableFuture.completedFuture(ActionResult.failure("accept.clan-missing"));
+                case ALREADY_IN_CLAN -> chatService.refreshSnapshot(player.getUniqueId())
+                        .thenApply(unused -> ActionResult.<Clan>failure("accept.already-in-clan"));
+                case CLAN_FULL -> CompletableFuture.completedFuture(ActionResult.failure("accept.clan-full"));
+            });
         });
     }
 
-    public CompletableFuture<ActionResult<Void>> denyInvite(Player player) {
-        return clanInviteRepository.findByInvitedPlayerUuid(player.getUniqueId()).thenCompose(optionalInvite -> {
-            if (optionalInvite.isEmpty()) {
+    public CompletableFuture<ActionResult<Void>> denyInvite(Player player, String clanName) {
+        String trimmedName = clanName.trim();
+        return clanRepository.findByName(trimmedName).thenCompose(optionalClan -> {
+            if (optionalClan.isEmpty()) {
                 return CompletableFuture.completedFuture(ActionResult.failure("deny.no-invite"));
             }
 
-            ClanInvite invite = optionalInvite.get();
-            if (!invite.expiresAt().isAfter(Instant.now())) {
-                return clanInviteRepository.deleteByInvitedPlayerUuid(player.getUniqueId())
-                        .thenApply(unused -> ActionResult.<Void>failure("deny.expired"));
-            }
+            Clan clan = optionalClan.get();
+            return clanInviteRepository.findByClanIdAndInvitedPlayerUuid(clan.id(), player.getUniqueId()).thenCompose(optionalInvite -> {
+                if (optionalInvite.isEmpty()) {
+                    return CompletableFuture.completedFuture(ActionResult.failure("deny.no-invite"));
+                }
 
-            return clanRepository.findById(invite.clanId()).thenCompose(optionalClan ->
-                    clanInviteRepository.deleteByInvitedPlayerUuid(player.getUniqueId()).thenApply(unused -> ActionResult.success(
-                            "deny.success",
-                            Map.of("clan", optionalClan.map(Clan::name).orElse("that clan")),
-                            null
-                    ))
-            );
+                ClanInvite invite = optionalInvite.get();
+                if (!invite.expiresAt().isAfter(Instant.now())) {
+                    return clanInviteRepository.deleteByClanIdAndInvitedPlayerUuid(clan.id(), player.getUniqueId())
+                            .thenApply(unused -> ActionResult.<Void>failure(
+                                    "deny.expired",
+                                    Map.of("clan", clan.name())
+                            ));
+                }
+
+                return clanInviteRepository.deleteByClanIdAndInvitedPlayerUuid(clan.id(), player.getUniqueId())
+                        .thenApply(unused -> ActionResult.success(
+                                "deny.success",
+                                Map.of("clan", clan.name()),
+                                null
+                        ));
+            });
         });
     }
 
@@ -142,16 +159,12 @@ public final class InviteService {
         return clanInviteRepository.deleteExpiredInvites(Instant.now());
     }
 
-    private CompletableFuture<ActionResult<PlayerClanSnapshot>> requirePresident(UUID playerUuid) {
+    private CompletableFuture<ActionResult<PlayerClanSnapshot>> requireMember(UUID playerUuid) {
         return chatService.getOrLoadSnapshot(playerUuid).thenApply(optionalSnapshot -> {
             if (optionalSnapshot.isEmpty()) {
                 return ActionResult.<PlayerClanSnapshot>failure("common.no-clan");
             }
-
-            PlayerClanSnapshot snapshot = optionalSnapshot.get();
-            return snapshot.role() == ClanRole.PRESIDENT
-                    ? ActionResult.success("", snapshot)
-                    : ActionResult.failure("common.not-president");
+            return ActionResult.success("", optionalSnapshot.get());
         });
     }
 }

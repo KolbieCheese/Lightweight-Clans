@@ -18,7 +18,7 @@ public final class TagSubcommand extends AbstractClanSubcommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length != 1) {
-            sendUsage(sender, "/clan tag <tag>");
+            sendUsage(sender, "usage.tag");
             return;
         }
 

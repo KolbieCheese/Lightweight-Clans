@@ -10,6 +10,7 @@ public final class ValidationUtil {
     private static final Pattern CLAN_TAG_PATTERN = Pattern.compile("^[A-Za-z0-9]+$");
     private static final Pattern WORD_PATTERN = Pattern.compile("[A-Za-z0-9]+");
     private static final Pattern ALPHANUMERIC_PATTERN = Pattern.compile("[A-Za-z0-9]");
+    private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#([A-Fa-f0-9]{6})$");
 
     private ValidationUtil() {
     }
@@ -52,7 +53,30 @@ public final class ValidationUtil {
         return "CLAN".substring(0, Math.min(4, maxLength));
     }
 
-    public static String normalizeColor(String color) {
-        return color == null ? "" : color.trim().toLowerCase(Locale.ROOT);
+    public static String normalizeClanName(String clanName) {
+        return clanName == null ? "" : clanName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static String normalizeClanColor(String color) {
+        if (color == null) {
+            return "";
+        }
+
+        String trimmed = color.trim();
+        if (trimmed.isEmpty()) {
+            return "";
+        }
+
+        Matcher matcher = HEX_COLOR_PATTERN.matcher(trimmed);
+        if (matcher.matches()) {
+            return "#" + matcher.group(1).toUpperCase(Locale.ROOT);
+        }
+
+        return trimmed.toLowerCase(Locale.ROOT).replace(' ', '_');
+    }
+
+    public static String formatClanColorDisplayName(String color) {
+        String normalized = normalizeClanColor(color);
+        return normalized.startsWith("#") ? normalized : normalized.replace('_', ' ');
     }
 }

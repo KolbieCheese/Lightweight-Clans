@@ -18,7 +18,7 @@ public final class RenameSubcommand extends AbstractClanSubcommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length == 0) {
-            sendUsage(sender, "/clan rename <newName>");
+            sendUsage(sender, "usage.rename");
             return;
         }
 

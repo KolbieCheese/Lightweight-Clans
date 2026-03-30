@@ -13,6 +13,11 @@ public final class HelpSubcommand extends AbstractClanSubcommand {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
+        if (args.length != 0) {
+            sendUsage(sender, "usage.help");
+            return;
+        }
+
         messages.sendList(sender, "help.lines");
     }
 }

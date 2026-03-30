@@ -17,7 +17,12 @@ public final class AcceptSubcommand extends AbstractClanSubcommand {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        handleAction(sender, inviteService.acceptInvite(asPlayer(sender)), result -> {
+        if (args.length == 0) {
+            sendUsage(sender, "usage.accept");
+            return;
+        }
+
+        handleAction(sender, inviteService.acceptInvite(asPlayer(sender), String.join(" ", args).trim()), result -> {
         });
     }
 }

@@ -17,6 +17,11 @@ public final class LeaveSubcommand extends AbstractClanSubcommand {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
+        if (args.length != 0) {
+            sendUsage(sender, "usage.leave");
+            return;
+        }
+
         handleAction(sender, clanService.leaveClan(asPlayer(sender)), result -> {
         });
     }

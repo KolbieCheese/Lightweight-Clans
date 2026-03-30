@@ -28,7 +28,7 @@ public final class KickSubcommand extends AbstractClanSubcommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length != 1) {
-            sendUsage(sender, "/clan kick <player>");
+            sendUsage(sender, "usage.kick");
             return;
         }
 
@@ -51,7 +51,8 @@ public final class KickSubcommand extends AbstractClanSubcommand {
         }
         return clanService.cachedSnapshot(player.getUniqueId())
                 .map(snapshot -> chatService.onlineClanMemberNames(snapshot.clanId(), player.getUniqueId()).stream()
-                        .filter(name -> name.toLowerCase().startsWith(args[0].toLowerCase()))
+                        .filter(name -> name.toLowerCase(java.util.Locale.ROOT)
+                                .startsWith(args[0].toLowerCase(java.util.Locale.ROOT)))
                         .toList())
                 .orElseGet(java.util.List::of);
     }

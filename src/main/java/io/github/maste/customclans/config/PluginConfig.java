@@ -2,34 +2,38 @@ package io.github.maste.customclans.config;
 
 import io.github.maste.customclans.util.ValidationUtil;
 import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
 import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class PluginConfig {
 
-    private static final Map<String, NamedTextColor> NAMED_COLORS = Map.of(
-            "red", NamedTextColor.RED,
-            "gold", NamedTextColor.GOLD,
-            "yellow", NamedTextColor.YELLOW,
-            "green", NamedTextColor.GREEN,
-            "aqua", NamedTextColor.AQUA,
-            "blue", NamedTextColor.BLUE,
-            "light_purple", NamedTextColor.LIGHT_PURPLE,
-            "white", NamedTextColor.WHITE,
-            "gray", NamedTextColor.GRAY
+    private static final Map<String, NamedTextColor> NAMED_COLORS = Map.ofEntries(
+            Map.entry("black", NamedTextColor.BLACK),
+            Map.entry("dark_blue", NamedTextColor.DARK_BLUE),
+            Map.entry("dark_green", NamedTextColor.DARK_GREEN),
+            Map.entry("dark_aqua", NamedTextColor.DARK_AQUA),
+            Map.entry("dark_red", NamedTextColor.DARK_RED),
+            Map.entry("dark_purple", NamedTextColor.DARK_PURPLE),
+            Map.entry("red", NamedTextColor.RED),
+            Map.entry("gold", NamedTextColor.GOLD),
+            Map.entry("yellow", NamedTextColor.YELLOW),
+            Map.entry("green", NamedTextColor.GREEN),
+            Map.entry("aqua", NamedTextColor.AQUA),
+            Map.entry("blue", NamedTextColor.BLUE),
+            Map.entry("light_purple", NamedTextColor.LIGHT_PURPLE),
+            Map.entry("white", NamedTextColor.WHITE),
+            Map.entry("gray", NamedTextColor.GRAY),
+            Map.entry("dark_gray", NamedTextColor.DARK_GRAY)
     );
 
     private final int maxClanNameLength;
     private final int maxClanTagLength;
-    private final String defaultClanTagColorName;
-    private final NamedTextColor defaultClanTagColor;
-    private final Map<String, NamedTextColor> allowedClanColors;
+    private final String defaultClanTagColorId;
+    private final TextColor defaultClanTagColor;
     private final int inviteExpirationSeconds;
     private final int maxClanSize;
     private final String publicChatFormat;
@@ -41,9 +45,8 @@ public final class PluginConfig {
     private PluginConfig(
             int maxClanNameLength,
             int maxClanTagLength,
-            String defaultClanTagColorName,
-            NamedTextColor defaultClanTagColor,
-            Map<String, NamedTextColor> allowedClanColors,
+            String defaultClanTagColorId,
+            TextColor defaultClanTagColor,
             int inviteExpirationSeconds,
             int maxClanSize,
             String publicChatFormat,
@@ -54,9 +57,8 @@ public final class PluginConfig {
     ) {
         this.maxClanNameLength = maxClanNameLength;
         this.maxClanTagLength = maxClanTagLength;
-        this.defaultClanTagColorName = defaultClanTagColorName;
+        this.defaultClanTagColorId = defaultClanTagColorId;
         this.defaultClanTagColor = defaultClanTagColor;
-        this.allowedClanColors = Map.copyOf(allowedClanColors);
         this.inviteExpirationSeconds = inviteExpirationSeconds;
         this.maxClanSize = maxClanSize;
         this.publicChatFormat = publicChatFormat;
@@ -81,38 +83,19 @@ public final class PluginConfig {
                 "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>"
         );
 
-        List<String> configuredColors = config.getStringList("allowed-clan-colors");
-        if (configuredColors.isEmpty()) {
-            configuredColors = List.of("red", "gold", "yellow", "green", "aqua", "blue", "light_purple", "white", "gray");
-        }
-
-        Map<String, NamedTextColor> allowedColors = new LinkedHashMap<>();
-        for (String configuredColor : configuredColors) {
-            String normalized = ValidationUtil.normalizeColor(configuredColor);
-            NamedTextColor namedTextColor = NAMED_COLORS.get(normalized);
-            if (namedTextColor == null) {
-                plugin.getLogger().warning("Ignoring invalid clan tag color in config.yml: " + configuredColor);
-                continue;
-            }
-            allowedColors.put(normalized, namedTextColor);
-        }
-
-        if (allowedColors.isEmpty()) {
-            allowedColors.put("gold", NamedTextColor.GOLD);
-        }
-
-        String defaultColorName = ValidationUtil.normalizeColor(config.getString("default-clan-tag-color", "gold"));
-        if (!allowedColors.containsKey(defaultColorName)) {
-            plugin.getLogger().warning("Default clan tag color is not allowed. Falling back to the first configured color.");
-            defaultColorName = allowedColors.keySet().iterator().next();
+        String defaultColorId = ValidationUtil.normalizeClanColor(config.getString("default-clan-tag-color", "gold"));
+        TextColor defaultColor = resolveColorValue(defaultColorId);
+        if (defaultColor == null) {
+            plugin.getLogger().warning("Invalid default clan tag color in config.yml. Falling back to gold.");
+            defaultColorId = "gold";
+            defaultColor = NamedTextColor.GOLD;
         }
 
         return new PluginConfig(
                 maxClanNameLength,
                 maxClanTagLength,
-                defaultColorName,
-                allowedColors.get(defaultColorName),
-                allowedColors,
+                defaultColorId,
+                defaultColor,
                 inviteExpirationSeconds,
                 maxClanSize,
                 publicChatFormat,
@@ -131,11 +114,11 @@ public final class PluginConfig {
         return maxClanTagLength;
     }
 
-    public String defaultClanTagColorName() {
-        return defaultClanTagColorName;
+    public String defaultClanTagColorId() {
+        return defaultClanTagColorId;
     }
 
-    public NamedTextColor defaultClanTagColor() {
+    public TextColor defaultClanTagColor() {
         return defaultClanTagColor;
     }
 
@@ -167,28 +150,31 @@ public final class PluginConfig {
         return debug;
     }
 
-    public boolean isAllowedColor(String colorName) {
-        return allowedClanColors.containsKey(ValidationUtil.normalizeColor(colorName));
+    public List<String> namedClanColorNames() {
+        return new ArrayList<>(NAMED_COLORS.keySet());
     }
 
-    public NamedTextColor resolveColor(String colorName) {
-        return allowedClanColors.get(ValidationUtil.normalizeColor(colorName));
+    public TextColor resolveClanColor(String colorName) {
+        String normalized = ValidationUtil.normalizeClanColor(colorName);
+        return resolveColorValue(normalized);
     }
 
-    public Set<String> allowedColorNames() {
-        return allowedClanColors.keySet();
+    public String normalizeClanColor(String colorName) {
+        String normalized = ValidationUtil.normalizeClanColor(colorName);
+        return resolveColorValue(normalized) == null ? "" : normalized;
     }
 
-    public List<String> allowedColorNameList() {
-        return new ArrayList<>(allowedClanColors.keySet());
-    }
-
-    public String normalizeAllowedColorName(String colorName) {
-        String normalized = ValidationUtil.normalizeColor(colorName);
-        return allowedClanColors.containsKey(normalized) ? normalized : "";
+    private static TextColor resolveColorValue(String normalized) {
+        if (normalized.isBlank()) {
+            return null;
+        }
+        if (normalized.startsWith("#")) {
+            return TextColor.fromHexString(normalized);
+        }
+        return NAMED_COLORS.get(normalized);
     }
 
     public String formatColorDisplayName(String colorName) {
-        return ValidationUtil.normalizeColor(colorName).replace('_', ' ');
+        return ValidationUtil.formatClanColorDisplayName(colorName);
     }
 }

@@ -1,9 +1,0 @@
-name: CustomClans
-version: ${version}
-main: io.github.maste.customclans.plugin.CustomClansPlugin
-api-version: '1.21'
-load: POSTWORLD
-authors:
-  - maste
-description: Lightweight command-based clans plugin for Paper.
-folia-supported: false

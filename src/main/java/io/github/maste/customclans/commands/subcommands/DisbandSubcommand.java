@@ -20,6 +20,11 @@ public final class DisbandSubcommand extends AbstractClanSubcommand {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
+        if (args.length != 0) {
+            sendUsage(sender, "usage.disband");
+            return;
+        }
+
         handleAction(sender, clanService.disbandClan(asPlayer(sender)), result -> {
             String clanName = result.placeholders().getOrDefault("clan", "");
             for (ClanMember clanMember : result.value()) {

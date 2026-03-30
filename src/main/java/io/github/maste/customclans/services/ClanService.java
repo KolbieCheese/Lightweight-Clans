@@ -60,7 +60,7 @@ public final class ClanService {
                 player.getName(),
                 trimmedName,
                 derivedTag,
-                pluginConfig.defaultClanTagColorName(),
+                pluginConfig.defaultClanTagColorId(),
                 Instant.now()
         ).thenCompose(result -> switch (result.status()) {
             case CREATED -> chatService.refreshSnapshot(player.getUniqueId()).thenApply(unused -> ActionResult.success(
@@ -69,39 +69,29 @@ public final class ClanService {
                     result.clan()
             ));
             case ALREADY_IN_CLAN -> CompletableFuture.completedFuture(ActionResult.failure("common.already-in-clan"));
-            case NAME_TAKEN -> CompletableFuture.completedFuture(ActionResult.failure(
-                    "create.name-taken",
-                    Map.of("name", trimmedName)
-            ));
+            case NAME_TAKEN -> CompletableFuture.completedFuture(ActionResult.failure("create.name-taken"));
         });
     }
 
-    public CompletableFuture<ActionResult<ClanInfo>> getClanInfo(Player player) {
-        return getOrLoadMemberSnapshot(player.getUniqueId()).thenCompose(snapshotResult -> {
-            if (!snapshotResult.success()) {
+    public CompletableFuture<ActionResult<ClanInfo>> getClanInfo(String clanName) {
+        String trimmedName = clanName.trim();
+        return clanRepository.findByName(trimmedName).thenCompose(optionalClan -> {
+            if (optionalClan.isEmpty()) {
                 return CompletableFuture.completedFuture(ActionResult.failure(
-                        snapshotResult.messageKey(),
-                        snapshotResult.placeholders()
+                        "lookup.not-found",
+                        Map.of("name", trimmedName)
                 ));
             }
 
-            PlayerClanSnapshot snapshot = snapshotResult.value();
-            CompletableFuture<Optional<Clan>> clanFuture = clanRepository.findById(snapshot.clanId());
-            CompletableFuture<List<ClanMember>> membersFuture = clanMemberRepository.findByClanId(snapshot.clanId());
-
-            return clanFuture.thenCombine(membersFuture, (optionalClan, members) -> {
-                if (optionalClan.isEmpty()) {
-                    chatService.clearPlayerState(player.getUniqueId());
-                    return ActionResult.<ClanInfo>failure("common.no-clan");
-                }
-
+            Clan clan = optionalClan.get();
+            return clanMemberRepository.findByClanId(clan.id()).thenApply(members -> {
                 String presidentName = members.stream()
                         .filter(member -> member.role() == ClanRole.PRESIDENT)
                         .map(ClanMember::lastKnownName)
                         .findFirst()
                         .orElse("Unknown");
 
-                return ActionResult.success("", new ClanInfo(optionalClan.get(), presidentName, members));
+                return ActionResult.success("", new ClanInfo(clan, presidentName, members));
             });
         });
     }
@@ -154,10 +144,7 @@ public final class ClanService {
             PlayerClanSnapshot snapshot = snapshotResult.value();
             return clanRepository.renameClan(snapshot.clanId(), trimmedName).thenCompose(renamed -> {
                 if (!renamed) {
-                    return CompletableFuture.completedFuture(ActionResult.failure(
-                            "rename.name-taken",
-                            Map.of("name", trimmedName)
-                    ));
+                    return CompletableFuture.completedFuture(ActionResult.failure("rename.name-taken"));
                 }
 
                 return refreshClanSnapshots(snapshot.clanId()).thenApply(unused -> ActionResult.success(
@@ -200,7 +187,7 @@ public final class ClanService {
     }
 
     public CompletableFuture<ActionResult<Void>> updateColor(Player player, String colorName) {
-        String normalizedColor = pluginConfig.normalizeAllowedColorName(colorName);
+        String normalizedColor = pluginConfig.normalizeClanColor(colorName);
         if (normalizedColor.isBlank()) {
             return CompletableFuture.completedFuture(ActionResult.failure(
                     "validation.invalid-color",

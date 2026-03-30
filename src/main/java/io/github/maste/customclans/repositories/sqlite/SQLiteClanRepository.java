@@ -4,6 +4,7 @@ import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanCreateResult;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.repositories.ClanRepository;
+import io.github.maste.customclans.util.ValidationUtil;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -29,6 +30,7 @@ public final class SQLiteClanRepository implements ClanRepository {
             String tagColor,
             Instant createdAt
     ) {
+        String normalizedName = ValidationUtil.normalizeClanName(clanName);
         return database.transactionAsync(connection -> {
             try (PreparedStatement membershipCheck = connection.prepareStatement(
                     "SELECT 1 FROM clan_members WHERE player_uuid = ?"
@@ -42,9 +44,9 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             try (PreparedStatement nameCheck = connection.prepareStatement(
-                    "SELECT id FROM clans WHERE lower(name) = lower(?)"
+                    "SELECT id FROM clans WHERE normalized_name = ?"
             )) {
-                nameCheck.setString(1, clanName);
+                nameCheck.setString(1, normalizedName);
                 try (ResultSet resultSet = nameCheck.executeQuery()) {
                     if (resultSet.next()) {
                         return new ClanCreateResult(ClanCreateResult.Status.NAME_TAKEN, null);
@@ -54,14 +56,15 @@ public final class SQLiteClanRepository implements ClanRepository {
 
             long clanId;
             try (PreparedStatement insertClan = connection.prepareStatement(
-                    "INSERT INTO clans (name, tag, tag_color, president_uuid, created_at) VALUES (?, ?, ?, ?, ?)",
+                    "INSERT INTO clans (name, normalized_name, tag, tag_color, president_uuid, created_at) VALUES (?, ?, ?, ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS
             )) {
                 insertClan.setString(1, clanName);
-                insertClan.setString(2, tag);
-                insertClan.setString(3, tagColor);
-                insertClan.setString(4, presidentUuid.toString());
-                insertClan.setLong(5, createdAt.toEpochMilli());
+                insertClan.setString(2, normalizedName);
+                insertClan.setString(3, tag);
+                insertClan.setString(4, tagColor);
+                insertClan.setString(5, presidentUuid.toString());
+                insertClan.setLong(6, createdAt.toEpochMilli());
                 insertClan.executeUpdate();
 
                 try (ResultSet generatedKeys = insertClan.getGeneratedKeys()) {
@@ -105,10 +108,11 @@ public final class SQLiteClanRepository implements ClanRepository {
 
     @Override
     public CompletableFuture<Optional<Clan>> findByName(String name) {
+        String normalizedName = ValidationUtil.normalizeClanName(name);
         return database.supplyAsync(() -> {
             try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clans WHERE lower(name) = lower(?)")) {
-                statement.setString(1, name);
+                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clans WHERE normalized_name = ?")) {
+                statement.setString(1, normalizedName);
                 try (ResultSet resultSet = statement.executeQuery()) {
                     return resultSet.next() ? Optional.of(SQLiteMapper.mapClan(resultSet)) : Optional.empty();
                 }
@@ -118,11 +122,12 @@ public final class SQLiteClanRepository implements ClanRepository {
 
     @Override
     public CompletableFuture<Boolean> renameClan(long clanId, String newName) {
+        String normalizedName = ValidationUtil.normalizeClanName(newName);
         return database.transactionAsync(connection -> {
             try (PreparedStatement nameCheck = connection.prepareStatement(
-                    "SELECT id FROM clans WHERE lower(name) = lower(?) AND id <> ?"
+                    "SELECT id FROM clans WHERE normalized_name = ? AND id <> ?"
             )) {
-                nameCheck.setString(1, newName);
+                nameCheck.setString(1, normalizedName);
                 nameCheck.setLong(2, clanId);
                 try (ResultSet resultSet = nameCheck.executeQuery()) {
                     if (resultSet.next()) {
@@ -132,10 +137,11 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             try (PreparedStatement updateStatement = connection.prepareStatement(
-                    "UPDATE clans SET name = ? WHERE id = ?"
+                    "UPDATE clans SET name = ?, normalized_name = ? WHERE id = ?"
             )) {
                 updateStatement.setString(1, newName);
-                updateStatement.setLong(2, clanId);
+                updateStatement.setString(2, normalizedName);
+                updateStatement.setLong(3, clanId);
                 return updateStatement.executeUpdate() > 0;
             }
         });

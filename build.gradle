@@ -45,7 +45,7 @@ tasks.withType(JavaCompile).configureEach {
 
 processResources {
     inputs.property('pluginVersion', project.version)
-    filesMatching(['paper-plugin.yml', 'plugin.yml']) {
+    filesMatching(['plugin.yml']) {
         expand(version: project.version)
     }
 }

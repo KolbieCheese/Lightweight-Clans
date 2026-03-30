@@ -1,5 +1,5 @@
 general:
-  prefix: "<gold><bold>Clans</bold></gold><gray> » </gray>"
+  prefix: "<gold><bold>Clans</bold></gold><gray> > </gray>"
 
 errors:
   player-only: "<prefix><red>Only players can use this command.</red>"
@@ -8,12 +8,28 @@ errors:
   internal: "<prefix><red>Something went wrong while handling that clan action.</red>"
   usage: "<prefix><yellow>Usage: <usage></yellow>"
 
+usage:
+  help: "/clan help"
+  create: "/clan create <clan name>"
+  invite: "/clan invite <player>"
+  accept: "/clan accept <clan name>"
+  deny: "/clan deny <clan name>"
+  leave: "/clan leave"
+  get: "/clan get <clan name> <info|members>"
+  chat: "/clan chat <message>"
+  chat-toggle: "/clan chat toggle"
+  rename: "/clan rename <new clan name>"
+  tag: "/clan tag <new tag>"
+  color: "/clan color <named color|#RRGGBB>"
+  transfer: "/clan transfer <player>"
+  kick: "/clan kick <player>"
+  disband: "/clan disband"
+
 common:
   no-clan: "<prefix><red>You are not in a clan.</red>"
   already-in-clan: "<prefix><red>You are already in a clan.</red>"
   not-president: "<prefix><red>Only the clan President can do that.</red>"
   clan-full: "<prefix><red>Your clan is already full.</red>"
-  player-not-found: "<prefix><red>That player could not be found.</red>"
   player-offline: "<prefix><red>That player must be online for this action.</red>"
   self-target: "<prefix><red>You cannot target yourself with that command.</red>"
   not-in-your-clan: "<prefix><red>That player is not in your clan.</red>"
@@ -24,47 +40,51 @@ validation:
   name-too-long: "<prefix><red>Clan names cannot be longer than <max> characters.</red>"
   invalid-tag: "<prefix><red>Clan tags may only use letters and numbers.</red>"
   tag-too-long: "<prefix><red>Clan tags cannot be longer than <max> characters.</red>"
-  invalid-color: "<prefix><red><color> is not an allowed clan color.</red>"
+  invalid-color: "<prefix><red><color> is not a valid clan color. Use a named Minecraft color or <white>#RRGGBB</white>.</red>"
 
 help:
   lines:
     - "<gold><bold>CustomClans Commands</bold></gold>"
-    - "<yellow>/clan create <name></yellow><gray> - Create a new clan.</gray>"
-    - "<yellow>/clan accept</yellow><gray> - Accept your current invite.</gray>"
-    - "<yellow>/clan deny</yellow><gray> - Deny your current invite.</gray>"
-    - "<yellow>/clan leave</yellow><gray> - Leave your clan.</gray>"
-    - "<yellow>/clan info</yellow><gray> - Show clan details.</gray>"
-    - "<yellow>/clan members</yellow><gray> - List clan members.</gray>"
+    - "<yellow>/clan help</yellow><gray> - Show this help list.</gray>"
+    - "<yellow>/clan create <clan name></yellow><gray> - Create a new clan and become its President.</gray>"
+    - "<yellow>/clan invite <player></yellow><gray> - Invite an online player to your clan.</gray>"
+    - "<yellow>/clan accept <clan name></yellow><gray> - Accept an invite from that clan.</gray>"
+    - "<yellow>/clan deny <clan name></yellow><gray> - Deny an invite from that clan.</gray>"
+    - "<yellow>/clan leave</yellow><gray> - Leave your current clan.</gray>"
+    - "<yellow>/clan get <clan name> info</yellow><gray> - View public clan details.</gray>"
+    - "<yellow>/clan get <clan name> members</yellow><gray> - View the clan member list.</gray>"
     - "<yellow>/clan chat <message></yellow><gray> - Send a clan-only message.</gray>"
     - "<yellow>/clan chat toggle</yellow><gray> - Toggle clan chat mode.</gray>"
-    - "<yellow>/clan invite <player></yellow><gray> - Invite an online player.</gray>"
-    - "<yellow>/clan rename <new name></yellow><gray> - Rename your clan.</gray>"
-    - "<yellow>/clan tag <tag></yellow><gray> - Change your clan tag.</gray>"
-    - "<yellow>/clan color <color></yellow><gray> - Change your clan tag color.</gray>"
-    - "<yellow>/clan kick <player></yellow><gray> - Remove a member.</gray>"
+    - "<yellow>/clan rename <new clan name></yellow><gray> - Rename your clan.</gray>"
+    - "<yellow>/clan tag <new tag></yellow><gray> - Change your clan tag.</gray>"
+    - "<yellow>/clan color <named color|#RRGGBB></yellow><gray> - Change your clan tag color.</gray>"
     - "<yellow>/clan transfer <player></yellow><gray> - Transfer the presidency.</gray>"
+    - "<yellow>/clan kick <player></yellow><gray> - Remove a member.</gray>"
     - "<yellow>/clan disband</yellow><gray> - Delete your clan.</gray>"
 
 create:
   success: "<prefix><green>Created clan <white><name></white> with tag <white>[<tag>]</white>.</green>"
-  name-taken: "<prefix><red>A clan named <white><name></white> already exists.</red>"
+  name-taken: "<prefix><red>Sorry, that clan name is taken.</red>"
 
 accept:
-  no-invite: "<prefix><red>You do not have an active clan invite.</red>"
-  expired: "<prefix><red>Your clan invite has expired.</red>"
+  no-invite: "<prefix><red>You do not have an active invite from that clan.</red>"
+  expired: "<prefix><red>Your invite from <white><clan></white> has expired.</red>"
   clan-missing: "<prefix><red>That clan no longer exists.</red>"
   already-in-clan: "<prefix><red>You joined a clan before accepting that invite.</red>"
   clan-full: "<prefix><red>That clan is full.</red>"
   success: "<prefix><green>You joined <white><clan></white>.</green>"
 
 deny:
-  no-invite: "<prefix><red>You do not have an active clan invite.</red>"
-  expired: "<prefix><red>Your clan invite has already expired.</red>"
+  no-invite: "<prefix><red>You do not have an active invite from that clan.</red>"
+  expired: "<prefix><red>Your invite from <white><clan></white> had already expired.</red>"
   success: "<prefix><yellow>You denied the invite from <white><clan></white>.</yellow>"
 
 leave:
   president-cannot-leave: "<prefix><red>You must transfer leadership or disband the clan before leaving.</red>"
   success: "<prefix><yellow>You left <white><clan></white>.</yellow>"
+
+lookup:
+  not-found: "<prefix><red>Sorry, no clan named <white><name></white> exists.</red>"
 
 info:
   header: "<gold><bold>Clan Info</bold></gold>"
@@ -87,19 +107,17 @@ chat:
   toggle-unavailable: "<prefix><red>Clan chat toggle is disabled in the config.</red>"
   toggle-on: "<prefix><green>Clan chat toggle enabled.</green>"
   toggle-off: "<prefix><yellow>Clan chat toggle disabled.</yellow>"
-  no-recipients: "<prefix><red>No clan members are online to receive that message.</red>"
 
 invite:
   sent: "<prefix><green>Invited <white><player></white> to <white><clan></white>.</green>"
-  received: "<prefix><gold><player></gold><gray> invited you to join <white><clan></white><gray>. Use <yellow>/clan accept</yellow><gray> or <yellow>/clan deny</yellow><gray>. This invite expires in <white><seconds></white><gray> seconds.</gray>"
+  received: "<prefix><gold><player></gold><gray> invited you to join <white><clan></white><gray>. Use <yellow>/clan accept <clan></yellow><gray> or <yellow>/clan deny <clan></yellow><gray>. This invite expires in <white><seconds></white><gray> seconds.</gray>"
   self: "<prefix><red>You cannot invite yourself.</red>"
   target-in-clan: "<prefix><red><player> is already in a clan.</red>"
-  already-invited: "<prefix><red><player> already has an active clan invite.</red>"
   duplicate: "<prefix><red><player> already has an active invite from your clan.</red>"
 
 rename:
   success: "<prefix><green>Renamed your clan to <white><name></white>.</green>"
-  name-taken: "<prefix><red>A clan named <white><name></white> already exists.</red>"
+  name-taken: "<prefix><red>Sorry, that clan name is taken.</red>"
 
 tag:
   success: "<prefix><green>Updated your clan tag to <white>[<tag>]</white>.</green>"
@@ -118,6 +136,3 @@ transfer:
 disband:
   success-self: "<prefix><red>You disbanded <white><clan></white>.</red>"
   success-target: "<prefix><red><clan> was disbanded.</red>"
-
-clan-chat:
-  sent-to-clan: "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>"

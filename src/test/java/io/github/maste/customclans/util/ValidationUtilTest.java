@@ -25,4 +25,12 @@ class ValidationUtilTest {
         assertEquals("ABC", ValidationUtil.deriveDefaultTag("Alpha Beta Core", 3));
         assertEquals("SOLO", ValidationUtil.deriveDefaultTag("Solo", 6));
     }
+
+    @Test
+    void normalizesClanNamesAndColors() {
+        assertEquals("crimson knights", ValidationUtil.normalizeClanName("  Crimson Knights  "));
+        assertEquals("dark_red", ValidationUtil.normalizeClanColor("Dark Red"));
+        assertEquals("#FFAA00", ValidationUtil.normalizeClanColor("#ffaa00"));
+        assertEquals("dark red", ValidationUtil.formatClanColorDisplayName("dark_red"));
+    }
 }

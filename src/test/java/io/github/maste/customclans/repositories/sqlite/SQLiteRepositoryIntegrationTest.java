@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import io.github.maste.customclans.models.ClanCreateResult;
 import io.github.maste.customclans.models.ClanInvite;
 import io.github.maste.customclans.models.InviteAcceptResult;
+import io.github.maste.customclans.models.InviteCreateResult;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
@@ -89,6 +90,7 @@ class SQLiteRepositoryIntegrationTest {
         clanInviteRepository.createInvite(invite, Instant.now()).join();
 
         InviteAcceptResult accepted = clanInviteRepository.acceptInvite(
+                created.clan().id(),
                 invited,
                 "Bob",
                 20,
@@ -97,6 +99,41 @@ class SQLiteRepositoryIntegrationTest {
 
         assertEquals(InviteAcceptResult.Status.ACCEPTED, accepted.status());
         assertTrue(clanMemberRepository.findSnapshotByPlayerUuid(invited).join().isPresent());
-        assertFalse(clanInviteRepository.findByInvitedPlayerUuid(invited).join().isPresent());
+        assertFalse(clanInviteRepository.findByClanIdAndInvitedPlayerUuid(created.clan().id(), invited).join().isPresent());
+    }
+
+    @Test
+    void createInviteAllowsDifferentClansToInviteSamePlayer() {
+        UUID invited = UUID.randomUUID();
+        ClanCreateResult firstClan = clanRepository.createClan(
+                UUID.randomUUID(),
+                "Alice",
+                "Azure Guard",
+                "AG",
+                "blue",
+                Instant.now()
+        ).join();
+        ClanCreateResult secondClan = clanRepository.createClan(
+                UUID.randomUUID(),
+                "Carol",
+                "Crimson Guard",
+                "CG",
+                "red",
+                Instant.now()
+        ).join();
+
+        InviteCreateResult firstInvite = clanInviteRepository.createInvite(
+                new ClanInvite(firstClan.clan().id(), invited, firstClan.clan().presidentUuid(), Instant.now().plusSeconds(300)),
+                Instant.now()
+        ).join();
+        InviteCreateResult secondInvite = clanInviteRepository.createInvite(
+                new ClanInvite(secondClan.clan().id(), invited, secondClan.clan().presidentUuid(), Instant.now().plusSeconds(300)),
+                Instant.now()
+        ).join();
+
+        assertEquals(InviteCreateResult.Status.CREATED, firstInvite.status());
+        assertEquals(InviteCreateResult.Status.CREATED, secondInvite.status());
+        assertTrue(clanInviteRepository.findByClanIdAndInvitedPlayerUuid(firstClan.clan().id(), invited).join().isPresent());
+        assertTrue(clanInviteRepository.findByClanIdAndInvitedPlayerUuid(secondClan.clan().id(), invited).join().isPresent());
     }
 }

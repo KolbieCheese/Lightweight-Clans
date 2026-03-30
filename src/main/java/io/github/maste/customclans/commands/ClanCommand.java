@@ -2,7 +2,6 @@ package io.github.maste.customclans.commands;
 
 import io.github.maste.customclans.config.MessageManager;
 import io.github.maste.customclans.services.ClanService;
-import io.github.maste.customclans.util.MiniMessageUtil;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;

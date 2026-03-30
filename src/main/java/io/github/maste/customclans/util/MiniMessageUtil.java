@@ -4,7 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -14,7 +14,7 @@ public final class MiniMessageUtil {
     private MiniMessageUtil() {
     }
 
-    public static Component clanTagPrefix(String tag, NamedTextColor color) {
+    public static Component clanTagPrefix(String tag, TextColor color) {
         if (tag == null || tag.isBlank()) {
             return Component.empty();
         }

@@ -17,7 +17,12 @@ public final class DenySubcommand extends AbstractClanSubcommand {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        handleAction(sender, inviteService.denyInvite(asPlayer(sender)), result -> {
+        if (args.length == 0) {
+            sendUsage(sender, "usage.deny");
+            return;
+        }
+
+        handleAction(sender, inviteService.denyInvite(asPlayer(sender), String.join(" ", args).trim()), result -> {
         });
     }
 }

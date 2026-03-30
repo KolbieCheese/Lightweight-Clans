@@ -10,13 +10,19 @@ import java.util.concurrent.CompletableFuture;
 
 public interface ClanInviteRepository {
 
-    CompletableFuture<Optional<ClanInvite>> findByInvitedPlayerUuid(UUID playerUuid);
+    CompletableFuture<Optional<ClanInvite>> findByClanIdAndInvitedPlayerUuid(long clanId, UUID playerUuid);
 
     CompletableFuture<InviteCreateResult> createInvite(ClanInvite invite, Instant now);
 
-    CompletableFuture<Void> deleteByInvitedPlayerUuid(UUID playerUuid);
+    CompletableFuture<Boolean> deleteByClanIdAndInvitedPlayerUuid(long clanId, UUID playerUuid);
 
     CompletableFuture<Integer> deleteExpiredInvites(Instant now);
 
-    CompletableFuture<InviteAcceptResult> acceptInvite(UUID playerUuid, String playerName, int maxClanSize, Instant now);
+    CompletableFuture<InviteAcceptResult> acceptInvite(
+            long clanId,
+            UUID playerUuid,
+            String playerName,
+            int maxClanSize,
+            Instant now
+    );
 }

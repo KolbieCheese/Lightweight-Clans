@@ -28,7 +28,7 @@ public final class InviteSubcommand extends AbstractClanSubcommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length != 1) {
-            sendUsage(sender, "/clan invite <player>");
+            sendUsage(sender, "usage.invite");
             return;
         }
 
@@ -55,7 +55,7 @@ public final class InviteSubcommand extends AbstractClanSubcommand {
         String token = args[0].toLowerCase();
         return plugin.getServer().getOnlinePlayers().stream()
                 .map(Player::getName)
-                .filter(name -> name.toLowerCase().startsWith(token))
+                .filter(name -> name.toLowerCase(java.util.Locale.ROOT).startsWith(token))
                 .sorted(String.CASE_INSENSITIVE_ORDER)
                 .toList();
     }

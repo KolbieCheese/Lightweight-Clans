@@ -54,8 +54,8 @@ public abstract class AbstractClanSubcommand implements ClanSubcommand {
         return (Player) sender;
     }
 
-    protected void sendUsage(CommandSender sender, String usage) {
-        messages.send(sender, "errors.usage", Placeholder.unparsed("usage", usage));
+    protected void sendUsage(CommandSender sender, String usagePath) {
+        messages.send(sender, "errors.usage", Placeholder.unparsed("usage", messages.raw(usagePath)));
     }
 
     protected <T> void handleAction(

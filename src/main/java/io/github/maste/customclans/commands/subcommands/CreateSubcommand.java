@@ -18,7 +18,7 @@ public final class CreateSubcommand extends AbstractClanSubcommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length == 0) {
-            sendUsage(sender, "/clan create <name>");
+            sendUsage(sender, "usage.create");
             return;
         }
 

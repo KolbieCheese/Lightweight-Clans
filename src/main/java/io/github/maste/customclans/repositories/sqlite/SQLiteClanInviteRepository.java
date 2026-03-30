@@ -22,13 +22,14 @@ public final class SQLiteClanInviteRepository implements ClanInviteRepository {
     }
 
     @Override
-    public CompletableFuture<Optional<ClanInvite>> findByInvitedPlayerUuid(UUID playerUuid) {
+    public CompletableFuture<Optional<ClanInvite>> findByClanIdAndInvitedPlayerUuid(long clanId, UUID playerUuid) {
         return database.supplyAsync(() -> {
             try (var connection = database.openConnection();
                  PreparedStatement statement = connection.prepareStatement(
-                         "SELECT * FROM clan_invites WHERE invited_player_uuid = ?"
+                         "SELECT * FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
                  )) {
-                statement.setString(1, playerUuid.toString());
+                statement.setLong(1, clanId);
+                statement.setString(2, playerUuid.toString());
                 try (ResultSet resultSet = statement.executeQuery()) {
                     return resultSet.next() ? Optional.of(SQLiteMapper.mapInvite(resultSet)) : Optional.empty();
                 }
@@ -40,23 +41,22 @@ public final class SQLiteClanInviteRepository implements ClanInviteRepository {
     public CompletableFuture<InviteCreateResult> createInvite(ClanInvite invite, Instant now) {
         return database.transactionAsync(connection -> {
             try (PreparedStatement inviteLookup = connection.prepareStatement(
-                    "SELECT * FROM clan_invites WHERE invited_player_uuid = ?"
+                    "SELECT * FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
             )) {
-                inviteLookup.setString(1, invite.invitedPlayerUuid().toString());
+                inviteLookup.setLong(1, invite.clanId());
+                inviteLookup.setString(2, invite.invitedPlayerUuid().toString());
                 try (ResultSet resultSet = inviteLookup.executeQuery()) {
                     if (resultSet.next()) {
                         ClanInvite existingInvite = SQLiteMapper.mapInvite(resultSet);
                         if (existingInvite.expiresAt().isAfter(now)) {
-                            InviteCreateResult.Status status = existingInvite.clanId() == invite.clanId()
-                                    ? InviteCreateResult.Status.DUPLICATE_FROM_SAME_CLAN
-                                    : InviteCreateResult.Status.ACTIVE_INVITE_EXISTS;
-                            return new InviteCreateResult(status, existingInvite);
+                            return new InviteCreateResult(InviteCreateResult.Status.DUPLICATE_FROM_SAME_CLAN);
                         }
 
                         try (PreparedStatement deleteExpired = connection.prepareStatement(
-                                "DELETE FROM clan_invites WHERE invited_player_uuid = ?"
+                                "DELETE FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
                         )) {
-                            deleteExpired.setString(1, invite.invitedPlayerUuid().toString());
+                            deleteExpired.setLong(1, invite.clanId());
+                            deleteExpired.setString(2, invite.invitedPlayerUuid().toString());
                             deleteExpired.executeUpdate();
                         }
                     }
@@ -73,19 +73,20 @@ public final class SQLiteClanInviteRepository implements ClanInviteRepository {
                 insertInvite.executeUpdate();
             }
 
-            return new InviteCreateResult(InviteCreateResult.Status.CREATED, null);
+            return new InviteCreateResult(InviteCreateResult.Status.CREATED);
         });
     }
 
     @Override
-    public CompletableFuture<Void> deleteByInvitedPlayerUuid(UUID playerUuid) {
-        return database.runAsync(() -> {
+    public CompletableFuture<Boolean> deleteByClanIdAndInvitedPlayerUuid(long clanId, UUID playerUuid) {
+        return database.supplyAsync(() -> {
             try (var connection = database.openConnection();
                  PreparedStatement statement = connection.prepareStatement(
-                         "DELETE FROM clan_invites WHERE invited_player_uuid = ?"
+                         "DELETE FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
                  )) {
-                statement.setString(1, playerUuid.toString());
-                statement.executeUpdate();
+                statement.setLong(1, clanId);
+                statement.setString(2, playerUuid.toString());
+                return statement.executeUpdate() > 0;
             }
         });
     }
@@ -104,13 +105,20 @@ public final class SQLiteClanInviteRepository implements ClanInviteRepository {
     }
 
     @Override
-    public CompletableFuture<InviteAcceptResult> acceptInvite(UUID playerUuid, String playerName, int maxClanSize, Instant now) {
+    public CompletableFuture<InviteAcceptResult> acceptInvite(
+            long clanId,
+            UUID playerUuid,
+            String playerName,
+            int maxClanSize,
+            Instant now
+    ) {
         return database.transactionAsync(connection -> {
             ClanInvite invite;
             try (PreparedStatement lookupInvite = connection.prepareStatement(
-                    "SELECT * FROM clan_invites WHERE invited_player_uuid = ?"
+                    "SELECT * FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
             )) {
-                lookupInvite.setString(1, playerUuid.toString());
+                lookupInvite.setLong(1, clanId);
+                lookupInvite.setString(2, playerUuid.toString());
                 try (ResultSet resultSet = lookupInvite.executeQuery()) {
                     if (!resultSet.next()) {
                         return new InviteAcceptResult(InviteAcceptResult.Status.NO_INVITE, null);
@@ -121,9 +129,10 @@ public final class SQLiteClanInviteRepository implements ClanInviteRepository {
 
             if (!invite.expiresAt().isAfter(now)) {
                 try (PreparedStatement deleteInvite = connection.prepareStatement(
-                        "DELETE FROM clan_invites WHERE invited_player_uuid = ?"
+                        "DELETE FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
                 )) {
-                    deleteInvite.setString(1, playerUuid.toString());
+                    deleteInvite.setLong(1, clanId);
+                    deleteInvite.setString(2, playerUuid.toString());
                     deleteInvite.executeUpdate();
                 }
                 return new InviteAcceptResult(InviteAcceptResult.Status.EXPIRED, null);
@@ -154,9 +163,10 @@ public final class SQLiteClanInviteRepository implements ClanInviteRepository {
                 try (ResultSet resultSet = clanLookup.executeQuery()) {
                     if (!resultSet.next()) {
                         try (PreparedStatement deleteInvite = connection.prepareStatement(
-                                "DELETE FROM clan_invites WHERE invited_player_uuid = ?"
+                                "DELETE FROM clan_invites WHERE clan_id = ? AND invited_player_uuid = ?"
                         )) {
-                            deleteInvite.setString(1, playerUuid.toString());
+                            deleteInvite.setLong(1, clanId);
+                            deleteInvite.setString(2, playerUuid.toString());
                             deleteInvite.executeUpdate();
                         }
                         return new InviteAcceptResult(InviteAcceptResult.Status.CLAN_MISSING, null);

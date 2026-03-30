@@ -27,7 +27,7 @@ public final class ColorSubcommand extends AbstractClanSubcommand {
     @Override
     public void execute(CommandSender sender, String[] args) {
         if (args.length != 1) {
-            sendUsage(sender, "/clan color <color>");
+            sendUsage(sender, "usage.color");
             return;
         }
 
@@ -40,8 +40,8 @@ public final class ColorSubcommand extends AbstractClanSubcommand {
         if (args.length != 1) {
             return List.of();
         }
-        String token = args[0].toLowerCase();
-        return pluginConfig.allowedColorNameList().stream()
+        String token = args[0].toLowerCase(java.util.Locale.ROOT);
+        return pluginConfig.namedClanColorNames().stream()
                 .filter(color -> color.startsWith(token))
                 .toList();
     }

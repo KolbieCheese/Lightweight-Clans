@@ -1,16 +1,6 @@
 max-clan-name-length: 24
 max-clan-tag-length: 6
 default-clan-tag-color: gold
-allowed-clan-colors:
-  - red
-  - gold
-  - yellow
-  - green
-  - aqua
-  - blue
-  - light_purple
-  - white
-  - gray
 invite-expiration-seconds: 300
 max-clan-size: 20
 public-chat-format: "<tag_prefix><white><player_name></white><gray>: </gray><message>"

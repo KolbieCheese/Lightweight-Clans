@@ -1,12 +1,15 @@
 name: CustomClans
 version: ${version}
 main: io.github.maste.customclans.plugin.CustomClansPlugin
-api-version: '1.21'
+api-version: '1.21.11'
+load: POSTWORLD
+authors:
+  - maste
+description: Lightweight command-based clans plugin for Paper.
 commands:
   clan:
     description: Root command for the CustomClans plugin.
     usage: /clan help
-    permission: clans.use
 permissions:
   clans.use:
     description: Allows access to general clan commands.
@@ -19,6 +22,9 @@ permissions:
     default: true
   clans.invite:
     description: Allows clan invite commands.
+    default: true
+  clans.lookup:
+    description: Allows public clan lookup commands.
     default: true
   clans.manage:
     description: Allows clan management commands.

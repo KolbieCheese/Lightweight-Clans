@@ -24,8 +24,13 @@ public final class ChatSubcommand extends AbstractClanSubcommand {
             return;
         }
 
+        if (args.length > 1 && args[0].equalsIgnoreCase("toggle")) {
+            sendUsage(sender, "usage.chat-toggle");
+            return;
+        }
+
         if (args.length == 0) {
-            sendUsage(sender, "/clan chat <message>");
+            sendUsage(sender, "usage.chat");
             return;
         }
 
@@ -36,7 +41,7 @@ public final class ChatSubcommand extends AbstractClanSubcommand {
 
     @Override
     public List<String> tabComplete(CommandSender sender, String[] args) {
-        if (args.length == 1 && "toggle".startsWith(args[0].toLowerCase())) {
+        if (args.length == 1 && "toggle".startsWith(args[0].toLowerCase(java.util.Locale.ROOT))) {
             return List.of("toggle");
         }
         return List.of();

@@ -18,6 +18,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -207,9 +208,11 @@ public final class ChatService {
     }
 
     private Component tagPrefix(PlayerClanSnapshot snapshot) {
+        TextColor color = Optional.ofNullable(pluginConfig.resolveClanColor(snapshot.tagColor()))
+                .orElse(pluginConfig.defaultClanTagColor());
         return MiniMessageUtil.clanTagPrefix(
                 snapshot.tag(),
-                Optional.ofNullable(pluginConfig.resolveColor(snapshot.tagColor())).orElse(pluginConfig.defaultClanTagColor())
+                color
         );
     }
 }
