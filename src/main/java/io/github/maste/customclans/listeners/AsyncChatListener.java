@@ -41,6 +41,7 @@ public final class AsyncChatListener implements Listener {
             return;
         }
 
-        event.renderer((source, sourceDisplayName, message, viewer) -> chatService.renderPublicChat(source, message));
+        event.renderer((source, sourceDisplayName, message, viewer) ->
+                chatService.renderPublicChat(source, sourceDisplayName, message));
     }
 }

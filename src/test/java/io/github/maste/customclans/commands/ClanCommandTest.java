@@ -2,10 +2,13 @@ package io.github.maste.customclans.commands;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import io.github.maste.customclans.commands.subcommands.CreateSubcommand;
 import io.github.maste.customclans.commands.subcommands.AcceptSubcommand;
 import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
@@ -16,17 +19,21 @@ import io.github.maste.customclans.commands.subcommands.HelpSubcommand;
 import io.github.maste.customclans.commands.subcommands.InviteSubcommand;
 import io.github.maste.customclans.commands.subcommands.KickSubcommand;
 import io.github.maste.customclans.commands.subcommands.LeaveSubcommand;
+import io.github.maste.customclans.commands.subcommands.RenameSubcommand;
 import io.github.maste.customclans.commands.subcommands.TagSubcommand;
 import io.github.maste.customclans.commands.subcommands.TransferSubcommand;
 import io.github.maste.customclans.config.MessageManager;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.util.ActionResult;
 import java.util.concurrent.CompletableFuture;
+import java.util.List;
 import io.github.maste.customclans.services.ChatService;
 import io.github.maste.customclans.services.ClanService;
 import io.github.maste.customclans.services.InviteService;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -162,5 +169,70 @@ class ClanCommandTest {
         new GetSubcommand(plugin, messages, clanService, pluginConfig).execute(sender, new String[]{"Azure", "Guard", "members"});
 
         verify(clanService).getClanInfo("Azure Guard");
+    }
+
+    @Test
+    void tabCompletionHidesPlayerOnlyCommandsFromConsole() {
+        CommandSender console = mock(CommandSender.class);
+        when(console.hasPermission(any())).thenReturn(true);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(
+                        new HelpSubcommand(plugin, messages),
+                        new RenameSubcommand(plugin, messages, clanService),
+                        new CreateSubcommand(plugin, messages, clanService)
+                )
+        );
+
+        List<String> suggestions = clanCommand.onTabComplete(console, mock(Command.class), "clan", new String[]{""});
+
+        verify(console).hasPermission("clans.use");
+        verify(console).hasPermission("clans.manage");
+        verify(console).hasPermission("clans.create");
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("help"), suggestions);
+    }
+
+    @Test
+    void tabCompletionStillShowsPlayerOnlyCommandsForPlayers() {
+        Player player = mock(Player.class);
+        when(player.hasPermission(any())).thenReturn(true);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(
+                        new HelpSubcommand(plugin, messages),
+                        new RenameSubcommand(plugin, messages, clanService),
+                        new CreateSubcommand(plugin, messages, clanService)
+                )
+        );
+
+        List<String> suggestions = clanCommand.onTabComplete(player, mock(Command.class), "clan", new String[]{""});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("create", "help", "rename"), suggestions);
+    }
+
+    @Test
+    void playerWithManagePermissionCanRunPresidentCommandPath() {
+        Player player = mock(Player.class);
+        when(player.hasPermission("clans.manage")).thenReturn(true);
+        when(player.getUniqueId()).thenReturn(java.util.UUID.randomUUID());
+        when(clanService.renameClan(eq(player), eq("Golden Guard")))
+                .thenReturn(CompletableFuture.completedFuture(ActionResult.success("rename.success", null)));
+        when(clanService.touchPlayerName(player)).thenReturn(CompletableFuture.completedFuture(null));
+        doNothing().when(messages).send(eq(player), eq("rename.success"), any(TagResolver.class));
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new RenameSubcommand(plugin, messages, clanService))
+        );
+
+        clanCommand.onCommand(player, mock(Command.class), "clan", new String[]{"rename", "Golden", "Guard"});
+
+        verify(clanService).renameClan(player, "Golden Guard");
+        verify(messages, never()).send(player, "errors.no-permission");
     }
 }

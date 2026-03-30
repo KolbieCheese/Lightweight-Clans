@@ -28,10 +28,20 @@ public final class MiniMessageUtil {
             String playerName,
             Component message
     ) {
+        return renderChatLine(miniMessage, format, tagPrefix, Component.text(playerName), message);
+    }
+
+    public static Component renderChatLine(
+            MiniMessage miniMessage,
+            String format,
+            Component tagPrefix,
+            Component playerName,
+            Component message
+    ) {
         return miniMessage.deserialize(
                 format,
                 Placeholder.component("tag_prefix", tagPrefix),
-                Placeholder.component("player_name", Component.text(playerName)),
+                Placeholder.component("player_name", playerName),
                 Placeholder.component("message", message)
         );
     }

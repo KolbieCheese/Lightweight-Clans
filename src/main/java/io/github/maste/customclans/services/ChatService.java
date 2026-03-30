@@ -152,13 +152,13 @@ public final class ChatService {
         return true;
     }
 
-    public Component renderPublicChat(Player player, Component message) {
+    public Component renderPublicChat(Player player, Component sourceDisplayName, Component message) {
         PlayerClanSnapshot snapshot = snapshots.get(player.getUniqueId());
         return MiniMessageUtil.renderChatLine(
                 miniMessage,
                 pluginConfig.publicChatFormat(),
                 snapshot == null ? Component.empty() : tagPrefix(snapshot),
-                player.getName(),
+                sourceDisplayName,
                 message
         );
     }

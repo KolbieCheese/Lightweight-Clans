@@ -28,7 +28,7 @@ permissions:
     default: true
   clans.manage:
     description: Allows clan management commands. Players must still be the clan President.
-    default: op
+    default: true
   clans.admin:
     description: Reserved for future admin and bypass features.
     default: op
