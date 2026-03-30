@@ -196,7 +196,7 @@ public final class ChatService {
                 miniMessage,
                 pluginConfig.clanChatFormat(),
                 tagPrefix(snapshot),
-                sender.getName(),
+                sender.displayName(),
                 message
         );
 
