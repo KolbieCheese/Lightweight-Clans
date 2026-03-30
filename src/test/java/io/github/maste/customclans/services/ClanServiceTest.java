@@ -333,6 +333,17 @@ class ClanServiceTest {
     }
 
     @Test
+    void descriptionRejectsBlankValues() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateDescription(president, "   ").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.description-too-short", result.messageKey());
+    }
+
+    @Test
     void descriptionRejectsValuesLongerThan500Characters() {
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();

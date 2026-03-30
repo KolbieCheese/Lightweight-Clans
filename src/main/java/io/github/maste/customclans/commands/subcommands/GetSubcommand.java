@@ -57,21 +57,25 @@ public final class GetSubcommand extends AbstractClanSubcommand {
 
     @Override
     public java.util.List<String> tabComplete(CommandSender sender, String[] args) {
-        if (args.length == 1) {
-            return clanService.suggestClanNames(args[0]);
+        if (args.length == 0) {
+            return java.util.List.of();
         }
 
-        if (args.length == 2) {
-            String token = args[1].toLowerCase(java.util.Locale.ROOT);
-            return java.util.List.of("info", "members").stream()
-                    .filter(option -> option.startsWith(token))
-                    .toList();
+        if (args.length >= 2) {
+            String clanPrefix = String.join(" ", java.util.Arrays.copyOf(args, args.length - 1)).trim();
+            if (clanService.clanNameExists(clanPrefix)) {
+                String token = args[args.length - 1].toLowerCase(java.util.Locale.ROOT);
+                return java.util.List.of("info", "members").stream()
+                        .filter(option -> option.startsWith(token))
+                        .toList();
+            }
         }
 
-        String token = args[args.length - 1].toLowerCase(java.util.Locale.ROOT);
-        return java.util.List.of("info", "members").stream()
-                .filter(option -> option.startsWith(token))
-                .toList();
+        if (clanService.clanNameExists(String.join(" ", args).trim())) {
+            return java.util.List.of("info", "members");
+        }
+
+        return clanService.suggestClanNameWords(args);
     }
 
     private void sendInfo(CommandSender sender, ClanInfo clanInfo) {
