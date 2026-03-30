@@ -39,6 +39,7 @@ class ValidationUtilTest {
     void normalizesModerationInputAndTokens() {
         assertEquals("admin", ValidationUtil.normalizeForModeration("@dm1n"));
         assertEquals("fuck", ValidationUtil.normalizeForModeration("f*ck"));
-        assertEquals(Set.of("a", "bitch"), ValidationUtil.moderationTokens("A bi!tch"));
+        assertEquals("bitch", ValidationUtil.normalizeForModeration("b!tch"));
+        assertEquals(Set.of("a", "bitch"), ValidationUtil.moderationTokens("A b!tch"));
     }
 }
