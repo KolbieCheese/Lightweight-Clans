@@ -1,16 +1,16 @@
-name: CustomClans
+name: LightweightClans
 version: ${version}
 main: io.github.maste.customclans.plugin.CustomClansPlugin
 api-version: '1.21.11'
 load: POSTWORLD
 authors:
   - maste
-description: Lightweight command-based clans plugin for Paper.
+description: Lightweight Clans is a lightweight command-based clans plugin for Paper.
 softdepend:
   - DiscordSRV
 commands:
   clan:
-    description: Root command for the CustomClans plugin.
+    description: Root command for the Lightweight Clans plugin.
     usage: /clan help
 permissions:
   clans.use:
@@ -26,7 +26,7 @@ permissions:
     description: Allows clan invite commands.
     default: true
   clans.lookup:
-    description: Allows public clan lookup commands.
+    description: Allows public clan lookup and listing commands.
     default: true
   clans.manage:
     description: Allows clan management commands. Players must still be the clan President.

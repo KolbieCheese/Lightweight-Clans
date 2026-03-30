@@ -2,6 +2,7 @@ package io.github.maste.customclans.repositories.sqlite;
 
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanCreateResult;
+import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.repositories.ClanRepository;
 import io.github.maste.customclans.util.ValidationUtil;
@@ -12,6 +13,7 @@ import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.List;
 
 public final class SQLiteClanRepository implements ClanRepository {
 
@@ -56,7 +58,8 @@ public final class SQLiteClanRepository implements ClanRepository {
 
             long clanId;
             try (PreparedStatement insertClan = connection.prepareStatement(
-                    "INSERT INTO clans (name, normalized_name, tag, tag_color, president_uuid, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                    "INSERT INTO clans (name, normalized_name, tag, tag_color, description, president_uuid, created_at) "
+                            + "VALUES (?, ?, ?, ?, '', ?, ?)",
                     Statement.RETURN_GENERATED_KEYS
             )) {
                 insertClan.setString(1, clanName);
@@ -88,7 +91,7 @@ public final class SQLiteClanRepository implements ClanRepository {
 
             return new ClanCreateResult(
                     ClanCreateResult.Status.CREATED,
-                    new Clan(clanId, clanName, tag, tagColor, presidentUuid, createdAt)
+                    new Clan(clanId, clanName, tag, tagColor, "", presidentUuid, createdAt)
             );
         });
     }
@@ -167,6 +170,58 @@ public final class SQLiteClanRepository implements ClanRepository {
                 statement.setString(1, newColor);
                 statement.setLong(2, clanId);
                 statement.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Void> updateClanDescription(long clanId, String description) {
+        return database.runAsync(() -> {
+            try (var connection = database.openConnection();
+                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET description = ? WHERE id = ?")) {
+                statement.setString(1, description);
+                statement.setLong(2, clanId);
+                statement.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<List<ClanListEntry>> listActiveClans() {
+        return database.supplyAsync(() -> {
+            try (var connection = database.openConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                         SELECT c.name, c.tag, c.tag_color, COUNT(m.player_uuid) AS member_count
+                         FROM clans c
+                         LEFT JOIN clan_members m ON m.clan_id = c.id
+                         GROUP BY c.id
+                         ORDER BY LOWER(c.name) ASC
+                         """);
+                 ResultSet resultSet = statement.executeQuery()) {
+                java.util.ArrayList<ClanListEntry> clans = new java.util.ArrayList<>();
+                while (resultSet.next()) {
+                    clans.add(SQLiteMapper.mapClanListEntry(resultSet));
+                }
+                return List.copyOf(clans);
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<List<String>> listClanNames() {
+        return database.supplyAsync(() -> {
+            try (var connection = database.openConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                         SELECT name
+                         FROM clans
+                         ORDER BY LOWER(name) ASC
+                         """);
+                 ResultSet resultSet = statement.executeQuery()) {
+                java.util.ArrayList<String> clanNames = new java.util.ArrayList<>();
+                while (resultSet.next()) {
+                    clanNames.add(resultSet.getString("name"));
+                }
+                return List.copyOf(clanNames);
             }
         });
     }

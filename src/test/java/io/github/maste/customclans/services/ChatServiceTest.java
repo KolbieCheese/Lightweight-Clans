@@ -99,7 +99,7 @@ class ChatServiceTest {
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("max-clan-name-length", 24);
         yaml.set("max-clan-tag-length", 6);
-        yaml.set("default-clan-tag-color", "gold");
+        yaml.set("default-clan-tag-color", "white");
         yaml.set("invite-expiration-seconds", 300);
         yaml.set("max-clan-size", 20);
         yaml.set("public-chat-format", "<tag_prefix><white><player_name></white><gray>: </gray><message>");

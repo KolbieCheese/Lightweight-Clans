@@ -41,7 +41,9 @@ public final class ColorSubcommand extends AbstractClanSubcommand {
             return List.of();
         }
         String token = args[0].toLowerCase(java.util.Locale.ROOT);
+        boolean hasBypass = sender.hasPermission(pluginConfig.nameModerationConfig().bypassPermission());
         return pluginConfig.namedClanColorNames().stream()
+                .filter(color -> hasBypass || !pluginConfig.isRestrictedGoldColor(color))
                 .filter(color -> color.startsWith(token))
                 .toList();
     }

@@ -137,6 +137,18 @@ class ClanServiceTest {
     }
 
     @Test
+    void nonPresidentCannotUpdateDescription() {
+        Player president = mockPlayer("Alice");
+        Player member = mockOnlinePlayer("Bob");
+        createClanWithMember(president, member, "Crimson Knights");
+
+        ActionResult<Void> result = clanService.updateDescription(member, "We are friendly").join();
+
+        assertFalse(result.success());
+        assertEquals("common.not-president", result.messageKey());
+    }
+
+    @Test
     void nonPresidentCannotUpdateColor() {
         Player president = mockPlayer("Alice");
         Player member = mockOnlinePlayer("Bob");
@@ -203,11 +215,11 @@ class ClanServiceTest {
         Player player = mockPlayer("Alice");
         clanService.createClan(player, "Crimson Knights").join();
 
-        ActionResult<Void> result = clanService.updateColor(player, "#ffaa00").join();
+        ActionResult<Void> result = clanService.updateColor(player, "#00aa00").join();
 
         assertTrue(result.success());
         assertEquals("color.success", result.messageKey());
-        assertEquals("#FFAA00", clanService.getClanInfo("Crimson Knights").join().value().clan().tagColor());
+        assertEquals("#00AA00", clanService.getClanInfo("Crimson Knights").join().value().clan().tagColor());
     }
 
     @Test
@@ -219,6 +231,40 @@ class ClanServiceTest {
 
         assertFalse(result.success());
         assertEquals("validation.invalid-color", result.messageKey());
+        assertEquals("white", clanService.getClanInfo("Crimson Knights").join().value().clan().tagColor());
+    }
+
+    @Test
+    void goldColorIsRestrictedWithoutBypassPermission() {
+        Player player = mockPlayer("Alice");
+        clanService.createClan(player, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateColor(player, "gold").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-color", result.messageKey());
+    }
+
+    @Test
+    void goldHexColorIsRestrictedWithoutBypassPermission() {
+        Player player = mockPlayer("Alice");
+        clanService.createClan(player, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateColor(player, "#ffaa00").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-color", result.messageKey());
+    }
+
+    @Test
+    void bypassPermissionAllowsRestrictedGoldColor() {
+        Player player = mockPlayer("Alice");
+        when(player.hasPermission("clans.admin.bypass.restricted-names")).thenReturn(true);
+        clanService.createClan(player, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateColor(player, "gold").join();
+
+        assertTrue(result.success());
         assertEquals("gold", clanService.getClanInfo("Crimson Knights").join().value().clan().tagColor());
     }
 
@@ -284,6 +330,47 @@ class ClanServiceTest {
         assertFalse(result.success());
         assertEquals("validation.tag-too-long", result.messageKey());
         assertEquals("4", result.placeholders().get("max"));
+    }
+
+    @Test
+    void descriptionRejectsValuesLongerThan500Characters() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+        String tooLong = "a".repeat(501);
+
+        ActionResult<Void> result = clanService.updateDescription(president, tooLong).join();
+
+        assertFalse(result.success());
+        assertEquals("validation.description-too-long", result.messageKey());
+    }
+
+    @Test
+    void presidentCanUpdateClanDescription() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        ActionResult<Void> result = clanService.updateDescription(president, "Raid-focused PvE clan").join();
+
+        assertTrue(result.success());
+        assertEquals("description.success", result.messageKey());
+        assertEquals(
+                "Raid-focused PvE clan",
+                clanService.getClanInfo("Crimson Knights").join().value().clan().description()
+        );
+    }
+
+    @Test
+    void listClansReturnsMemberCounts() {
+        Player alice = mockPlayer("Alice");
+        Player bob = mockOnlinePlayer("Bob");
+        createClanWithMember(alice, bob, "Crimson Knights");
+
+        ActionResult<java.util.List<io.github.maste.customclans.models.ClanListEntry>> result = clanService.listClans().join();
+
+        assertTrue(result.success());
+        assertFalse(result.value().isEmpty());
+        assertEquals("Crimson Knights", result.value().getFirst().name());
+        assertEquals(2, result.value().getFirst().memberCount());
     }
 
     @Test
@@ -373,7 +460,7 @@ class ClanServiceTest {
             org.bukkit.configuration.file.YamlConfiguration yaml = new org.bukkit.configuration.file.YamlConfiguration();
             yaml.set("max-clan-name-length", 24);
             yaml.set("max-clan-tag-length", 6);
-            yaml.set("default-clan-tag-color", "gold");
+            yaml.set("default-clan-tag-color", "white");
             yaml.set("invite-expiration-seconds", 300);
             yaml.set("max-clan-size", 20);
             yaml.set("public-chat-format", "<tag_prefix><white><player_name></white><gray>: </gray><message>");

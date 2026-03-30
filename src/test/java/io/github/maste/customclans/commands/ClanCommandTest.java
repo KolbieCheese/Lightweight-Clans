@@ -15,16 +15,20 @@ import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
 import io.github.maste.customclans.commands.subcommands.DenySubcommand;
 import io.github.maste.customclans.commands.subcommands.DisbandSubcommand;
+import io.github.maste.customclans.commands.subcommands.DescriptionSubcommand;
 import io.github.maste.customclans.commands.subcommands.GetSubcommand;
 import io.github.maste.customclans.commands.subcommands.HelpSubcommand;
 import io.github.maste.customclans.commands.subcommands.InviteSubcommand;
 import io.github.maste.customclans.commands.subcommands.KickSubcommand;
 import io.github.maste.customclans.commands.subcommands.LeaveSubcommand;
+import io.github.maste.customclans.commands.subcommands.ListSubcommand;
 import io.github.maste.customclans.commands.subcommands.RenameSubcommand;
+import io.github.maste.customclans.commands.subcommands.ReloadSubcommand;
 import io.github.maste.customclans.commands.subcommands.TagSubcommand;
 import io.github.maste.customclans.commands.subcommands.TransferSubcommand;
 import io.github.maste.customclans.config.MessageManager;
 import io.github.maste.customclans.config.PluginConfig;
+import io.github.maste.customclans.plugin.CustomClansPlugin;
 import io.github.maste.customclans.util.ActionResult;
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
@@ -83,6 +87,25 @@ class ClanCommandTest {
     }
 
     @Test
+    void reloadRejectsExtraArguments() {
+        CustomClansPlugin customClansPlugin = mock(CustomClansPlugin.class);
+        new ReloadSubcommand(customClansPlugin, messages).execute(sender, new String[]{"extra"});
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void reloadRunsPluginRefreshFlow() {
+        CustomClansPlugin customClansPlugin = mock(CustomClansPlugin.class);
+        doNothing().when(customClansPlugin).reloadPluginState();
+
+        new ReloadSubcommand(customClansPlugin, messages).execute(sender, new String[0]);
+
+        verify(customClansPlugin).reloadPluginState();
+        verify(messages).send(sender, "reload.success");
+    }
+
+    @Test
     void chatToggleRejectsExtraArguments() {
         new ChatSubcommand(plugin, messages, chatService).execute(sender, new String[]{"toggle", "extra"});
 
@@ -91,14 +114,14 @@ class ClanCommandTest {
 
     @Test
     void acceptRequiresClanName() {
-        new AcceptSubcommand(plugin, messages, inviteService).execute(sender, new String[0]);
+        new AcceptSubcommand(plugin, messages, inviteService, clanService).execute(sender, new String[0]);
 
         verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
     }
 
     @Test
     void denyRequiresClanName() {
-        new DenySubcommand(plugin, messages, inviteService).execute(sender, new String[0]);
+        new DenySubcommand(plugin, messages, inviteService, clanService).execute(sender, new String[0]);
 
         verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
     }
@@ -113,6 +136,20 @@ class ClanCommandTest {
     @Test
     void getRejectsUnknownView() {
         new GetSubcommand(plugin, messages, clanService, pluginConfig).execute(sender, new String[]{"Azure", "stats"});
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void descriptionRequiresContent() {
+        new DescriptionSubcommand(plugin, messages, clanService).execute(sender, new String[0]);
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void listRejectsExtraArguments() {
+        new ListSubcommand(plugin, messages, clanService).execute(sender, new String[]{"extra"});
 
         verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
     }

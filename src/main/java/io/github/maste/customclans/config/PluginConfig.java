@@ -32,6 +32,8 @@ public final class PluginConfig {
             Map.entry("gray", NamedTextColor.GRAY),
             Map.entry("dark_gray", NamedTextColor.DARK_GRAY)
     );
+    private static final String GOLD_COLOR_ID = "gold";
+    private static final String GOLD_HEX_COLOR_ID = "#FFAA00";
 
     private final int maxClanNameLength;
     private final int maxClanTagLength;
@@ -99,9 +101,14 @@ public final class PluginConfig {
         String defaultColorId = ValidationUtil.normalizeClanColor(config.getString("default-clan-tag-color", "gold"));
         TextColor defaultColor = resolveColorValue(defaultColorId);
         if (defaultColor == null) {
-            plugin.getLogger().warning("Invalid default clan tag color in config.yml. Falling back to gold.");
-            defaultColorId = "gold";
-            defaultColor = NamedTextColor.GOLD;
+            plugin.getLogger().warning("Invalid default clan tag color in config.yml. Falling back to white.");
+            defaultColorId = "white";
+            defaultColor = NamedTextColor.WHITE;
+        }
+        if (isRestrictedGoldColorValue(defaultColorId)) {
+            plugin.getLogger().warning("Configured default clan tag color is restricted (gold). Falling back to white.");
+            defaultColorId = "white";
+            defaultColor = NamedTextColor.WHITE;
         }
 
         return new PluginConfig(
@@ -203,6 +210,14 @@ public final class PluginConfig {
             return TextColor.fromHexString(normalized);
         }
         return NAMED_COLORS.get(normalized);
+    }
+
+    public boolean isRestrictedGoldColor(String colorName) {
+        return isRestrictedGoldColorValue(normalizeClanColor(colorName));
+    }
+
+    private static boolean isRestrictedGoldColorValue(String normalizedColor) {
+        return GOLD_COLOR_ID.equals(normalizedColor) || GOLD_HEX_COLOR_ID.equals(normalizedColor);
     }
 
     public String formatColorDisplayName(String colorName) {

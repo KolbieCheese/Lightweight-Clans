@@ -1,6 +1,6 @@
-# CustomClans
+# Lightweight Clans
 
-CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.21.11+`. It is designed for Java and Bedrock-friendly command usage with persistent SQLite storage, public clan lookup, public chat tags, private clan chat, and a single-leader MVP role model.
+Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Paper `1.21.11+`. It is designed for Java and Bedrock-friendly command usage with persistent SQLite storage, public clan lookup, public chat tags, private clan chat, and a single-leader MVP role model.
 
 ## Features
 
@@ -21,6 +21,7 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
   - `/clan help`
   - `/clan get <clan name> info`
   - `/clan get <clan name> members`
+  - `/clan list`
 - General player actions:
   - `/clan create <clan name>`
   - `/clan accept <clan name>`
@@ -32,6 +33,7 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
   - `/clan chat toggle`
 - President-only actions:
   - `/clan rename <new clan name>`
+  - `/clan description <text>`
   - `/clan tag <new tag>`
   - `/clan color <named color|#RRGGBB>`
   - `/clan transfer <player>`
@@ -47,7 +49,7 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
 - `clans.invite` (default `true`): `/clan invite`
 - `clans.chat` (default `true`): `/clan chat`, `/clan chat toggle`
 - `clans.lookup` (default `true`): `/clan get <clan name> info|members`
-- `clans.manage` (default `true`): `/clan rename`, `/clan tag`, `/clan color`, `/clan transfer`, `/clan kick`, `/clan disband`
+- `clans.manage` (default `true`): `/clan rename`, `/clan description`, `/clan tag`, `/clan color`, `/clan transfer`, `/clan kick`, `/clan disband`
 - `clans.admin` (default `op`): reserved for future admin or bypass features
 
 `clans.manage` only allows a player to attempt management commands. President-only actions are still enforced in the service layer, so a non-President cannot rename, retag, recolor, transfer, kick, or disband even if they somehow receive the permission node.
@@ -73,6 +75,7 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
 
 `config.yml` controls:
 
+- config schema version for upgrade migrations
 - clan name and tag length limits
 - default clan tag color
 - invite expiration time
@@ -84,11 +87,12 @@ CustomClans is a lightweight, command-only Minecraft clans plugin for Paper `1.2
 
 ## Storage
 
-- Default database: `plugins/CustomClans/clans.db`
+- Default database: `plugins/LightweightClans/clans.db`
 - Tables and indexes are created automatically on startup.
 - Clan names are stored with a normalized form for case-insensitive uniqueness and lookup.
 - SQLite is used by default through repository interfaces so the persistence layer can be swapped later.
 - Existing databases already using the current schema do not need a new migration for this polish pass.
+- On first boot after renaming from `CustomClans` to `LightweightClans`, the plugin migrates `config.yml`, `messages.yml`, and `clans.db` from `plugins/CustomClans` into `plugins/LightweightClans` and removes the old folder after a successful copy.
 
 ## Chat Formatting
 

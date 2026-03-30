@@ -1,6 +1,7 @@
+config-schema-version: 1
 max-clan-name-length: 24
 max-clan-tag-length: 4
-default-clan-tag-color: gold
+default-clan-tag-color: white
 invite-expiration-seconds: 300
 max-clan-size: 20
 public-chat-format: "<tag_prefix><white><player_name></white><gray>: </gray><message>"
