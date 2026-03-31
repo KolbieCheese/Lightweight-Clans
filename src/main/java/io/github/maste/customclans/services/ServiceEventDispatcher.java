@@ -4,6 +4,7 @@ import java.util.concurrent.CompletableFuture;
 import org.bukkit.Bukkit;
 import org.bukkit.event.Event;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.Server;
 
 /**
  * Dispatches public plugin events on the main thread.
@@ -23,20 +24,28 @@ public final class ServiceEventDispatcher {
         if (!plugin.isEnabled()) {
             return CompletableFuture.completedFuture(null);
         }
-        if (Bukkit.isPrimaryThread()) {
-            plugin.getServer().getPluginManager().callEvent(event);
+        Server server = plugin.getServer();
+        if (server == null) {
             return CompletableFuture.completedFuture(null);
         }
 
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            try {
-                plugin.getServer().getPluginManager().callEvent(event);
-                future.complete(null);
-            } catch (Throwable throwable) {
-                future.completeExceptionally(throwable);
-            }
-        });
-        return future;
+        boolean isPrimaryThread;
+        try {
+            isPrimaryThread = Bukkit.getServer() == null || Bukkit.isPrimaryThread();
+        } catch (Throwable ignored) {
+            isPrimaryThread = true;
+        }
+
+        if (isPrimaryThread) {
+            server.getPluginManager().callEvent(event);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        try {
+            server.getScheduler().runTask(plugin, () -> server.getPluginManager().callEvent(event));
+        } catch (Throwable ignored) {
+            server.getPluginManager().callEvent(event);
+        }
+        return CompletableFuture.completedFuture(null);
     }
 }

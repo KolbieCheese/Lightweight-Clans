@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -228,6 +229,11 @@ public final class ChatService {
             return CompletableFuture.completedFuture(ActionResult.success("", null));
         }
 
+        org.bukkit.Server server = plugin.getServer();
+        if (server == null) {
+            return CompletableFuture.completedFuture(ActionResult.success("", null));
+        }
+
         CompletableFuture<ActionResult<Void>> resultFuture = new CompletableFuture<>();
         Runnable dispatchTask = () -> {
             try {
@@ -238,13 +244,16 @@ public final class ChatService {
             }
         };
 
-        if (plugin.getServer().isPrimaryThread()) {
+        if (server.isPrimaryThread()) {
             dispatchTask.run();
         } else {
-            plugin.getServer().getScheduler().runTask(plugin, dispatchTask);
+            try {
+                server.getScheduler().runTask(plugin, dispatchTask);
+            } catch (Throwable throwable) {
+                resultFuture.completeExceptionally(throwable);
+            }
         }
-
-        return resultFuture;
+        return resultFuture.completeOnTimeout(ActionResult.success("", null), 5, TimeUnit.SECONDS);
     }
 
     private void broadcastClanMessage(

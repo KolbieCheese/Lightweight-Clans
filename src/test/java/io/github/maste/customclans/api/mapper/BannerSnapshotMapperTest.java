@@ -7,9 +7,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import io.github.maste.customclans.api.model.ClanBannerSnapshot;
 import io.github.maste.customclans.models.ClanBannerData;
 import java.util.List;
-import org.bukkit.DyeColor;
-import org.bukkit.Material;
-import org.bukkit.block.banner.PatternType;
 import org.junit.jupiter.api.Test;
 
 class BannerSnapshotMapperTest {
@@ -19,10 +16,10 @@ class BannerSnapshotMapperTest {
     @Test
     void mapsMaterialBaseColorAndOrderedPatterns() {
         ClanBannerData data = new ClanBannerData(
-                Material.LIGHT_BLUE_BANNER,
+                "minecraft:light_blue_banner",
                 List.of(
-                        new ClanBannerData.PatternSpec(PatternType.CROSS, DyeColor.BLACK),
-                        new ClanBannerData.PatternSpec(PatternType.BORDER, DyeColor.WHITE)
+                        new ClanBannerData.PatternSpec("minecraft:cross", "black"),
+                        new ClanBannerData.PatternSpec("minecraft:border", "white")
                 )
         );
 

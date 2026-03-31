@@ -75,6 +75,9 @@ processResources {
 
 tasks.test {
     useJUnitPlatform()
+    timeout = java.time.Duration.ofMinutes(8)
+    maxParallelForks = 1
+    failFast = true
 }
 
 tasks.jar {

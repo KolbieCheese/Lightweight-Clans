@@ -25,6 +25,7 @@ import io.github.maste.customclans.util.ValidationUtil;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -32,6 +33,7 @@ import java.util.concurrent.CompletableFuture;
 import org.bukkit.Material;
 import org.bukkit.event.Event;
 import org.bukkit.entity.Player;
+import org.bukkit.block.banner.PatternType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.block.banner.Pattern;
@@ -340,22 +342,26 @@ public final class ClanService {
 
             List<ClanBannerData.PatternSpec> patterns = bannerMeta.getPatterns().stream()
                     .map(pattern -> new ClanBannerData.PatternSpec(
-                            pattern.getPattern(),
-                            pattern.getColor()
+                            patternTypeId(pattern.getPattern()),
+                            dyeColorId(pattern.getColor())
                     ))
                     .toList();
 
             long clanId = snapshotResult.value().clanId();
-            return loadRequiredClanSnapshot(clanId).thenCompose(before -> clanRepository.updateClanBanner(
-                            snapshotResult.value().clanId(),
-                            materialName,
-                            serializePatternSpecs(patterns)
-                    )
-                    .thenCompose(unused -> refreshClanSnapshots(clanId))
-                    .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
-                    .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
-                            .thenCompose(eventUnused -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner"))))
-                            .thenApply(updatedUnused -> ActionResult.success("banner.set-success", null)));
+            return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                    clanRepository.updateClanBanner(
+                                    snapshotResult.value().clanId(),
+                                    materialName,
+                                    serializePatternSpecs(patterns)
+                            )
+                            .thenCompose(unused -> refreshClanSnapshots(clanId))
+                            .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
+                            .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
+                                    .thenCompose(eventUnused ->
+                                            publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner")))
+                                    )
+                                    .thenApply(updatedUnused -> ActionResult.success("banner.set-success", null)))
+            );
         });
     }
 
@@ -374,18 +380,19 @@ public final class ClanService {
                 }
 
                 ClanBannerData clanBanner = optionalBanner.get();
-                Material material = clanBanner.material();
-                if (material.isAir()) {
+                Optional<Material> resolvedMaterial = resolveBannerMaterial(clanBanner.materialId());
+                if (resolvedMaterial.isEmpty() || resolvedMaterial.get().isAir()) {
                     return ActionResult.failure("banner.not-set");
                 }
 
-                ItemStack bannerItem = new ItemStack(material, 1);
+                ItemStack bannerItem = new ItemStack(resolvedMaterial.get(), 1);
                 if (!(bannerItem.getItemMeta() instanceof BannerMeta bannerMeta)) {
                     return ActionResult.failure("banner.not-set");
                 }
 
                 List<Pattern> patterns = clanBanner.patterns().stream()
-                        .map(pattern -> new Pattern(pattern.color(), pattern.pattern()))
+                        .map(pattern -> toBannerPattern(pattern.patternId(), pattern.colorId()))
+                        .flatMap(Optional::stream)
                         .toList();
                 bannerMeta.setPatterns(patterns);
                 bannerItem.setItemMeta(bannerMeta);
@@ -556,16 +563,19 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before -> clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members ->
-                    clanRepository.disbandClan(snapshot.clanId()).thenCompose(unused -> publishEvent(new ClanDeletedEvent(before))
-                            .thenApply(eventUnused -> {
-                        chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
-                        return ActionResult.success(
-                                "disband.success-self",
-                                Map.of("clan", snapshot.clanName()),
-                                members
-                        );
-                    }))
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members ->
+                            clanRepository.disbandClan(snapshot.clanId()).thenCompose(unused ->
+                                    publishEvent(new ClanDeletedEvent(before)).thenApply(eventUnused -> {
+                                        chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
+                                        return ActionResult.success(
+                                                "disband.success-self",
+                                                Map.of("clan", snapshot.clanName()),
+                                                members
+                                        );
+                                    })
+                            )
+                    )
             );
         });
     }
@@ -634,9 +644,9 @@ public final class ClanService {
                 builder.append(',');
             }
             builder.append("{\"pattern\":\"")
-                    .append(patternSpec.pattern().name())
+                    .append(patternSpec.patternId())
                     .append("\",\"color\":\"")
-                    .append(patternSpec.color().name())
+                    .append(patternSpec.colorId())
                     .append("\"}");
         }
         builder.append(']');
@@ -663,5 +673,90 @@ public final class ClanService {
 
     private CompletableFuture<Void> publishEvent(Event event) {
         return eventDispatcher.dispatch(event);
+    }
+
+    private Optional<Pattern> toBannerPattern(String patternId, String colorId) {
+        Optional<org.bukkit.DyeColor> resolvedColor = resolveDyeColor(colorId);
+        if (resolvedColor.isEmpty()) {
+            return Optional.empty();
+        }
+        String token = patternId;
+        int separatorIndex = token.indexOf(':');
+        if (separatorIndex >= 0 && separatorIndex + 1 < token.length()) {
+            token = token.substring(separatorIndex + 1);
+        }
+        String normalized = token.toLowerCase(Locale.ROOT);
+
+        try {
+            java.lang.reflect.Method byIdentifier = PatternType.class.getMethod("getByIdentifier", String.class);
+            Object resolved = byIdentifier.invoke(null, normalized);
+            if (resolved instanceof PatternType patternType) {
+                return Optional.of(new Pattern(resolvedColor.get(), patternType));
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        try {
+            java.lang.reflect.Method valueOf = PatternType.class.getMethod("valueOf", String.class);
+            Object resolved = valueOf.invoke(null, normalized.toUpperCase(Locale.ROOT));
+            if (resolved instanceof PatternType patternType) {
+                return Optional.of(new Pattern(resolvedColor.get(), patternType));
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        return Optional.empty();
+    }
+
+    private String patternTypeId(PatternType patternType) {
+        try {
+            java.lang.reflect.Method getKeyMethod = PatternType.class.getMethod("getKey");
+            Object key = getKeyMethod.invoke(patternType);
+            if (key != null) {
+                java.lang.reflect.Method asStringMethod = key.getClass().getMethod("asString");
+                Object result = asStringMethod.invoke(key);
+                if (result instanceof String value && !value.isBlank()) {
+                    return value.toLowerCase(Locale.ROOT);
+                }
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        try {
+            java.lang.reflect.Method getIdentifierMethod = PatternType.class.getMethod("getIdentifier");
+            Object result = getIdentifierMethod.invoke(patternType);
+            if (result instanceof String value && !value.isBlank()) {
+                return value.toLowerCase(Locale.ROOT);
+            }
+        } catch (ReflectiveOperationException ignored) {
+        }
+
+        return patternType.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private String dyeColorId(org.bukkit.DyeColor dyeColor) {
+        return dyeColor.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private Optional<org.bukkit.DyeColor> resolveDyeColor(String colorId) {
+        try {
+            return Optional.of(org.bukkit.DyeColor.valueOf(colorId.toUpperCase(Locale.ROOT)));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<Material> resolveBannerMaterial(String materialId) {
+        String token = materialId;
+        int separatorIndex = token.indexOf(':');
+        if (separatorIndex >= 0 && separatorIndex + 1 < token.length()) {
+            token = token.substring(separatorIndex + 1);
+        }
+        String enumName = token.toUpperCase(Locale.ROOT);
+        try {
+            return Optional.of(Material.valueOf(enumName));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 }

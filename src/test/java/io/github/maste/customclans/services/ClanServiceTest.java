@@ -49,8 +49,15 @@ class ClanServiceTest {
                 new NoopClanChatRelay(),
                 MiniMessage.miniMessage()
         );
-        clanService = new ClanService(pluginConfig, holder.clanRepository(), holder.memberRepository(), chatService);
+        clanService = new ClanService(
+                holder.plugin(),
+                pluginConfig,
+                holder.clanRepository(),
+                holder.memberRepository(),
+                chatService
+        );
         inviteService = new InviteService(
+                holder.plugin(),
                 pluginConfig,
                 holder.clanRepository(),
                 holder.memberRepository(),

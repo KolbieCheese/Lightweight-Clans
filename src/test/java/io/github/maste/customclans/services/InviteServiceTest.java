@@ -56,7 +56,14 @@ class InviteServiceTest {
                 new NoopClanChatRelay(),
                 MiniMessage.miniMessage()
         );
-        inviteService = new InviteService(pluginConfig, clanRepository, memberRepository, inviteRepository, chatService);
+        inviteService = new InviteService(
+                plugin,
+                pluginConfig,
+                clanRepository,
+                memberRepository,
+                inviteRepository,
+                chatService
+        );
     }
 
     @AfterEach

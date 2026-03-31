@@ -5,7 +5,6 @@ import io.github.maste.customclans.api.model.ClanBannerSnapshot;
 import io.github.maste.customclans.models.ClanBannerData;
 import java.util.List;
 import java.util.Locale;
-import org.bukkit.Material;
 
 public final class BannerSnapshotMapper {
 
@@ -16,22 +15,25 @@ public final class BannerSnapshotMapper {
 
         List<BannerPatternSnapshot> patternSnapshots = data.patterns().stream()
                 .map(pattern -> new BannerPatternSnapshot(
-                        pattern.pattern().getKey().asString(),
-                        pattern.color().name().toLowerCase(Locale.ROOT)
+                        normalizePatternId(pattern.patternId()),
+                        normalizeColorId(pattern.colorId())
                 ))
                 .toList();
 
         return new ClanBannerSnapshot(
-                data.material().getKey().asString(),
-                deriveBaseColor(data.material()),
+                normalizeMaterialId(data.materialId()),
+                deriveBaseColor(data.materialId()),
                 patternSnapshots
         );
     }
 
-    private String deriveBaseColor(Material material) {
-        String materialName = material.name();
+    private String deriveBaseColor(String materialId) {
+        String normalizedMaterialId = normalizeMaterialId(materialId);
+        String materialName = normalizedMaterialId.startsWith("minecraft:")
+                ? normalizedMaterialId.substring("minecraft:".length())
+                : normalizedMaterialId;
         String suffix = "_BANNER";
-        if (!materialName.endsWith(suffix)) {
+        if (!materialName.toUpperCase(Locale.ROOT).endsWith(suffix)) {
             return null;
         }
 
@@ -41,5 +43,19 @@ public final class BannerSnapshotMapper {
         }
 
         return colorToken.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizePatternId(String patternId) {
+        String normalized = patternId.toLowerCase(Locale.ROOT);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
+    }
+
+    private String normalizeColorId(String colorId) {
+        return colorId.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizeMaterialId(String materialId) {
+        String normalized = materialId.toLowerCase(Locale.ROOT);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
     }
 }
