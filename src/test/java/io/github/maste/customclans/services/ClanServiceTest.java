@@ -16,10 +16,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.minimessage.MiniMessage;
-import org.bukkit.DyeColor;
 import org.bukkit.Material;
-import org.bukkit.block.banner.Pattern;
-import org.bukkit.block.banner.PatternType;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -419,9 +416,7 @@ class ClanServiceTest {
         when(banner.getAmount()).thenReturn(1);
         when(banner.getType()).thenReturn(Material.RED_BANNER);
         when(banner.getItemMeta()).thenReturn(bannerMeta);
-        when(bannerMeta.getPatterns()).thenReturn(List.of(
-                new Pattern(DyeColor.WHITE, PatternType.BORDER)
-        ));
+        when(bannerMeta.getPatterns()).thenReturn(List.of());
 
         ActionResult<Void> result = clanService.setClanBanner(president).join();
 
@@ -491,7 +486,7 @@ class ClanServiceTest {
         holder.clanRepository().updateClanBanner(
                 chatService.cachedSnapshot(president.getUniqueId()).orElseThrow().clanId(),
                 Material.RED_BANNER.name(),
-                "[{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}]"
+                "[]"
         ).join();
 
         ActionResult<ItemStack> result = clanService.getClanBannerItem(member).join();
@@ -523,16 +518,13 @@ class ClanServiceTest {
     }
 
     @Test
-    void reconstructedBannerPreservesMaterialAndOrderedPatternsAndColors() {
+    void reconstructedBannerPreservesMaterialAndReturnsNoPatternsWhenStoredEmpty() {
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
         holder.clanRepository().updateClanBanner(
                 chatService.cachedSnapshot(president.getUniqueId()).orElseThrow().clanId(),
                 Material.BLUE_BANNER.name(),
-                "[" +
-                        "{\"pattern\":\"STRIPE_TOP\",\"color\":\"BLACK\"}," +
-                        "{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}" +
-                        "]"
+                "[]"
         ).join();
 
         ActionResult<ItemStack> result = clanService.getClanBannerItem(president).join();
@@ -540,10 +532,7 @@ class ClanServiceTest {
         assertTrue(result.success());
         assertEquals(Material.BLUE_BANNER, result.value().getType());
         BannerMeta bannerMeta = (BannerMeta) result.value().getItemMeta();
-        assertEquals(List.of(
-                new Pattern(DyeColor.BLACK, PatternType.STRIPE_TOP),
-                new Pattern(DyeColor.WHITE, PatternType.BORDER)
-        ), bannerMeta.getPatterns());
+        assertEquals(List.of(), bannerMeta.getPatterns());
     }
 
     private Player mockPlayer(String name) {

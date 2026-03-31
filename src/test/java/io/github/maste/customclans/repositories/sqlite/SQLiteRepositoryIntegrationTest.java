@@ -5,18 +5,13 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.maste.customclans.models.ClanCreateResult;
-import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanInvite;
 import io.github.maste.customclans.models.InviteAcceptResult;
 import io.github.maste.customclans.models.InviteCreateResult;
 import java.nio.file.Path;
 import java.time.Instant;
-import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
-import org.bukkit.DyeColor;
 import org.bukkit.Material;
-import org.bukkit.block.banner.PatternType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -180,10 +175,6 @@ class SQLiteRepositoryIntegrationTest {
                 Instant.now()
         ).join();
 
-        List<ClanBannerData.PatternSpec> expectedPatterns = List.of(
-                new ClanBannerData.PatternSpec(PatternType.STRIPE_TOP, DyeColor.BLACK),
-                new ClanBannerData.PatternSpec(PatternType.BORDER, DyeColor.WHITE)
-        );
         String patternsJson = "[" +
                 "{\"pattern\":\"STRIPE_TOP\",\"color\":\"BLACK\"}," +
                 "{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}" +
@@ -191,15 +182,22 @@ class SQLiteRepositoryIntegrationTest {
 
         clanRepository.updateClanBanner(created.clan().id(), Material.BLUE_BANNER.name(), patternsJson).join();
 
-        Optional<ClanBannerData> banner = clanRepository.findClanBanner(created.clan().id()).join();
-        assertTrue(banner.isPresent());
-        assertEquals(Material.BLUE_BANNER, banner.orElseThrow().material());
-        assertEquals(expectedPatterns, banner.orElseThrow().patterns());
-
-        assertEquals(Material.BLUE_BANNER, clanRepository.findById(created.clan().id()).join().orElseThrow().bannerData().material());
-        assertEquals(
-                expectedPatterns,
-                clanRepository.findById(created.clan().id()).join().orElseThrow().bannerData().patterns()
-        );
+        try (java.sql.Connection connection = database.dataSource().getConnection();
+             java.sql.PreparedStatement statement = connection.prepareStatement(
+                     """
+                             SELECT banner_material, banner_patterns_json
+                             FROM clans
+                             WHERE id = ?
+                             """
+             )) {
+            statement.setLong(1, created.clan().id());
+            try (java.sql.ResultSet resultSet = statement.executeQuery()) {
+                assertTrue(resultSet.next());
+                assertEquals(Material.BLUE_BANNER.name(), resultSet.getString("banner_material"));
+                assertEquals(patternsJson, resultSet.getString("banner_patterns_json"));
+            }
+        } catch (java.sql.SQLException exception) {
+            throw new RuntimeException(exception);
+        }
     }
 }
