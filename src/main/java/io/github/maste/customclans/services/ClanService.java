@@ -346,16 +346,20 @@ public final class ClanService {
                     .toList();
 
             long clanId = snapshotResult.value().clanId();
-            return loadRequiredClanSnapshot(clanId).thenCompose(before -> clanRepository.updateClanBanner(
-                            snapshotResult.value().clanId(),
-                            materialName,
-                            serializePatternSpecs(patterns)
-                    )
-                    .thenCompose(unused -> refreshClanSnapshots(clanId))
-                    .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
-                    .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
-                            .thenCompose(eventUnused -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner"))))
-                            .thenApply(updatedUnused -> ActionResult.success("banner.set-success", null)));
+            return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                    clanRepository.updateClanBanner(
+                                    snapshotResult.value().clanId(),
+                                    materialName,
+                                    serializePatternSpecs(patterns)
+                            )
+                            .thenCompose(unused -> refreshClanSnapshots(clanId))
+                            .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
+                            .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
+                                    .thenCompose(eventUnused ->
+                                            publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner")))
+                                    )
+                                    .thenApply(updatedUnused -> ActionResult.success("banner.set-success", null)))
+            );
         });
     }
 
@@ -556,16 +560,19 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before -> clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members ->
-                    clanRepository.disbandClan(snapshot.clanId()).thenCompose(unused -> publishEvent(new ClanDeletedEvent(before))
-                            .thenApply(eventUnused -> {
-                        chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
-                        return ActionResult.success(
-                                "disband.success-self",
-                                Map.of("clan", snapshot.clanName()),
-                                members
-                        );
-                    }))
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members ->
+                            clanRepository.disbandClan(snapshot.clanId()).thenCompose(unused ->
+                                    publishEvent(new ClanDeletedEvent(before)).thenApply(eventUnused -> {
+                                        chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
+                                        return ActionResult.success(
+                                                "disband.success-self",
+                                                Map.of("clan", snapshot.clanName()),
+                                                members
+                                        );
+                                    })
+                            )
+                    )
             );
         });
     }
