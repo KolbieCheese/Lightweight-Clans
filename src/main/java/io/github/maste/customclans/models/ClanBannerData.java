@@ -4,7 +4,6 @@ import java.util.List;
 import java.util.Objects;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
-import org.bukkit.block.banner.PatternType;
 
 public record ClanBannerData(
         Material material,
@@ -17,11 +16,14 @@ public record ClanBannerData(
     }
 
     public record PatternSpec(
-            PatternType pattern,
+            String patternId,
             DyeColor color
     ) {
         public PatternSpec {
-            Objects.requireNonNull(pattern, "pattern");
+            Objects.requireNonNull(patternId, "patternId");
+            if (patternId.isBlank()) {
+                throw new IllegalArgumentException("patternId");
+            }
             Objects.requireNonNull(color, "color");
         }
     }

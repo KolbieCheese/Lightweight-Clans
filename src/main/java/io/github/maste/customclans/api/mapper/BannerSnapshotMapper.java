@@ -16,7 +16,7 @@ public final class BannerSnapshotMapper {
 
         List<BannerPatternSnapshot> patternSnapshots = data.patterns().stream()
                 .map(pattern -> new BannerPatternSnapshot(
-                        pattern.pattern().getKey().asString(),
+                        normalizePatternId(pattern.patternId()),
                         pattern.color().name().toLowerCase(Locale.ROOT)
                 ))
                 .toList();
@@ -41,5 +41,10 @@ public final class BannerSnapshotMapper {
         }
 
         return colorToken.toLowerCase(Locale.ROOT);
+    }
+
+    private String normalizePatternId(String patternId) {
+        String normalized = patternId.toLowerCase(Locale.ROOT);
+        return normalized.contains(":") ? normalized : "minecraft:" + normalized;
     }
 }

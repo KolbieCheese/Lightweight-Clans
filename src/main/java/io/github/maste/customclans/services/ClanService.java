@@ -25,6 +25,7 @@ import io.github.maste.customclans.util.ValidationUtil;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -340,7 +341,7 @@ public final class ClanService {
 
             List<ClanBannerData.PatternSpec> patterns = bannerMeta.getPatterns().stream()
                     .map(pattern -> new ClanBannerData.PatternSpec(
-                            pattern.getPattern(),
+                            pattern.getPattern().getKey().asString(),
                             pattern.getColor()
                     ))
                     .toList();
@@ -389,7 +390,8 @@ public final class ClanService {
                 }
 
                 List<Pattern> patterns = clanBanner.patterns().stream()
-                        .map(pattern -> new Pattern(pattern.color(), pattern.pattern()))
+                        .map(pattern -> toBannerPattern(pattern.patternId(), pattern.color()))
+                        .flatMap(Optional::stream)
                         .toList();
                 bannerMeta.setPatterns(patterns);
                 bannerItem.setItemMeta(bannerMeta);
@@ -641,7 +643,7 @@ public final class ClanService {
                 builder.append(',');
             }
             builder.append("{\"pattern\":\"")
-                    .append(patternSpec.pattern().name())
+                    .append(patternSpec.patternId())
                     .append("\",\"color\":\"")
                     .append(patternSpec.color().name())
                     .append("\"}");
@@ -670,5 +672,19 @@ public final class ClanService {
 
     private CompletableFuture<Void> publishEvent(Event event) {
         return eventDispatcher.dispatch(event);
+    }
+
+    private Optional<Pattern> toBannerPattern(String patternId, org.bukkit.DyeColor color) {
+        String enumName = patternId;
+        int separatorIndex = enumName.indexOf(':');
+        if (separatorIndex >= 0 && separatorIndex + 1 < enumName.length()) {
+            enumName = enumName.substring(separatorIndex + 1);
+        }
+        enumName = enumName.toUpperCase(Locale.ROOT);
+        try {
+            return Optional.of(new Pattern(color, org.bukkit.block.banner.PatternType.valueOf(enumName)));
+        } catch (IllegalArgumentException exception) {
+            return Optional.empty();
+        }
     }
 }

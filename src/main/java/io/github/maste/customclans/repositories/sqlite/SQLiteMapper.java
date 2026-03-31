@@ -9,11 +9,11 @@ import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.logging.Logger;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
-import org.bukkit.block.banner.PatternType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
@@ -92,9 +92,7 @@ final class SQLiteMapper {
             return List.of();
         }
 
-        java.util.regex.Pattern entryPattern = java.util.regex.Pattern.compile(
-                "\\{\"pattern\":\"([A-Z_]+)\",\"color\":\"([A-Z_]+)\"\\}"
-        );
+        java.util.regex.Pattern entryPattern = java.util.regex.Pattern.compile("\\{\"pattern\":\"([^\"]+)\",\"color\":\"([A-Z_]+)\"\\}");
         ArrayList<ClanBannerData.PatternSpec> patternSpecs = new ArrayList<>();
         for (String rawEntry : content.split("(?<=\\}),(?=\\{)")) {
             java.util.regex.Matcher matcher = entryPattern.matcher(rawEntry);
@@ -103,19 +101,30 @@ final class SQLiteMapper {
                 return null;
             }
 
-            PatternType patternType;
+            String patternId;
             DyeColor dyeColor;
             try {
-                patternType = PatternType.valueOf(matcher.group(1));
+                patternId = normalizePatternId(matcher.group(1));
                 dyeColor = DyeColor.valueOf(matcher.group(2));
             } catch (IllegalArgumentException exception) {
                 LOGGER.warning("Ignoring invalid banner pattern/color enum for clan id " + clanId + ".");
                 return null;
             }
-            patternSpecs.add(new ClanBannerData.PatternSpec(patternType, dyeColor));
+            patternSpecs.add(new ClanBannerData.PatternSpec(patternId, dyeColor));
         }
 
         return List.copyOf(patternSpecs);
+    }
+
+    private static String normalizePatternId(String rawPattern) {
+        String trimmed = rawPattern.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException("pattern");
+        }
+        if (trimmed.contains(":")) {
+            return trimmed.toLowerCase(Locale.ROOT);
+        }
+        return trimmed.toLowerCase(Locale.ROOT);
     }
 
     static ClanListEntry mapClanListEntry(ResultSet resultSet) throws SQLException {
