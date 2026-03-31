@@ -23,7 +23,7 @@ public final class ReloadSubcommand extends AbstractClanSubcommand {
             ((CustomClansPlugin) plugin).reloadPluginState();
             messages.send(sender, "reload.success");
         } catch (RuntimeException exception) {
-            plugin.getLogger().log(Level.SEVERE, "Failed to reload CustomClans configuration", exception);
+            plugin.getLogger().log(Level.SEVERE, "Failed to reload LightweightClans configuration", exception);
             messages.send(sender, "errors.internal");
         }
     }

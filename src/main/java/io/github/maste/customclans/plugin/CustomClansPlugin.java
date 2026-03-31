@@ -233,11 +233,9 @@ public final class CustomClansPlugin extends JavaPlugin {
 
         Path currentConfigPath = currentDataFolder.resolve("config.yml");
         boolean firstLightweightClansBoot = !Files.exists(currentConfigPath);
-        int currentSchemaVersion = readConfigSchemaVersion(currentConfigPath);
         int legacySchemaVersion = readConfigSchemaVersion(legacyDataFolder.resolve("config.yml"));
         boolean requiresSchemaMigration = legacySchemaVersion > 0
-                && currentSchemaVersion > 0
-                && legacySchemaVersion < currentSchemaVersion;
+                && legacySchemaVersion < CONFIG_SCHEMA_VERSION;
 
         if (!firstLightweightClansBoot && !requiresSchemaMigration) {
             return;
