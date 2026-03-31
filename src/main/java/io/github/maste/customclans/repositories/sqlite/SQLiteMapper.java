@@ -1,17 +1,27 @@
 package io.github.maste.customclans.repositories.sqlite;
 
 import io.github.maste.customclans.models.Clan;
+import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanInvite;
 import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanMember;
 import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.logging.Logger;
+import org.bukkit.DyeColor;
+import org.bukkit.Material;
+import org.bukkit.block.banner.PatternType;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.UUID;
 
 final class SQLiteMapper {
+
+    private static final Logger LOGGER = Logger.getLogger(SQLiteMapper.class.getName());
 
     private SQLiteMapper() {
     }
@@ -23,9 +33,89 @@ final class SQLiteMapper {
                 resultSet.getString("tag"),
                 resultSet.getString("tag_color"),
                 resultSet.getString("description"),
+                mapClanBannerData(resultSet).orElse(null),
                 UUID.fromString(resultSet.getString("president_uuid")),
                 Instant.ofEpochMilli(resultSet.getLong("created_at"))
         );
+    }
+
+    static Optional<ClanBannerData> mapClanBannerData(ResultSet resultSet) throws SQLException {
+        return decodeClanBannerData(
+                resultSet.getLong("id"),
+                resultSet.getString("banner_material"),
+                resultSet.getString("banner_patterns_json")
+        );
+    }
+
+    static Optional<ClanBannerData> decodeClanBannerData(long clanId, String materialName, String patternsJson) {
+        if (materialName == null || materialName.isBlank()) {
+            return Optional.empty();
+        }
+
+        Material material;
+        try {
+            material = Material.valueOf(materialName);
+        } catch (IllegalArgumentException exception) {
+            LOGGER.warning("Ignoring invalid clan banner material '" + materialName + "' for clan id " + clanId + ".");
+            return Optional.empty();
+        }
+
+        if (!material.name().endsWith("_BANNER") || material.name().endsWith("WALL_BANNER")) {
+            LOGGER.warning("Ignoring non-banner clan banner material '" + materialName + "' for clan id " + clanId + ".");
+            return Optional.empty();
+        }
+
+        List<ClanBannerData.PatternSpec> patterns = parsePatternSpecs(clanId, patternsJson);
+        if (patterns == null) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new ClanBannerData(material, patterns));
+    }
+
+    private static List<ClanBannerData.PatternSpec> parsePatternSpecs(long clanId, String patternsJson) {
+        if (patternsJson == null || patternsJson.isBlank()) {
+            return List.of();
+        }
+
+        String compact = patternsJson.replaceAll("\\s+", "");
+        if ("[]".equals(compact)) {
+            return List.of();
+        }
+        if (!compact.startsWith("[") || !compact.endsWith("]")) {
+            LOGGER.warning("Ignoring malformed banner patterns JSON for clan id " + clanId + ".");
+            return null;
+        }
+
+        String content = compact.substring(1, compact.length() - 1);
+        if (content.isBlank()) {
+            return List.of();
+        }
+
+        java.util.regex.Pattern entryPattern = java.util.regex.Pattern.compile(
+                "\\{\"pattern\":\"([A-Z_]+)\",\"color\":\"([A-Z_]+)\"\\}"
+        );
+        ArrayList<ClanBannerData.PatternSpec> patternSpecs = new ArrayList<>();
+        for (String rawEntry : content.split("(?<=\\}),(?=\\{)")) {
+            java.util.regex.Matcher matcher = entryPattern.matcher(rawEntry);
+            if (!matcher.matches()) {
+                LOGGER.warning("Ignoring malformed banner patterns JSON for clan id " + clanId + ".");
+                return null;
+            }
+
+            PatternType patternType;
+            DyeColor dyeColor;
+            try {
+                patternType = PatternType.valueOf(matcher.group(1));
+                dyeColor = DyeColor.valueOf(matcher.group(2));
+            } catch (IllegalArgumentException exception) {
+                LOGGER.warning("Ignoring invalid banner pattern/color enum for clan id " + clanId + ".");
+                return null;
+            }
+            patternSpecs.add(new ClanBannerData.PatternSpec(patternType, dyeColor));
+        }
+
+        return List.copyOf(patternSpecs);
     }
 
     static ClanListEntry mapClanListEntry(ResultSet resultSet) throws SQLException {

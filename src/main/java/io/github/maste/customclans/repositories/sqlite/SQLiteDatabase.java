@@ -62,6 +62,8 @@ public final class SQLiteDatabase implements AutoCloseable {
                         tag TEXT NOT NULL,
                         tag_color TEXT NOT NULL,
                         description TEXT NOT NULL DEFAULT '',
+                        banner_material TEXT NULL,
+                        banner_patterns_json TEXT NULL,
                         president_uuid TEXT NOT NULL,
                         created_at INTEGER NOT NULL
                     )
@@ -109,6 +111,16 @@ public final class SQLiteDatabase implements AutoCloseable {
         if (!hasColumn(connection, "clans", "description")) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE clans ADD COLUMN description TEXT NOT NULL DEFAULT ''");
+            }
+        }
+        if (!hasColumn(connection, "clans", "banner_material")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE clans ADD COLUMN banner_material TEXT NULL");
+            }
+        }
+        if (!hasColumn(connection, "clans", "banner_patterns_json")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE clans ADD COLUMN banner_patterns_json TEXT NULL");
             }
         }
 

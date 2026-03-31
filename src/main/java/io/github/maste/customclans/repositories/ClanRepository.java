@@ -1,7 +1,7 @@
 package io.github.maste.customclans.repositories;
 
 import io.github.maste.customclans.models.Clan;
-import io.github.maste.customclans.models.ClanBanner;
+import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanCreateResult;
 import io.github.maste.customclans.models.ClanListEntry;
 import java.time.Instant;
@@ -33,9 +33,9 @@ public interface ClanRepository {
 
     CompletableFuture<Void> updateClanDescription(long clanId, String description);
 
-    CompletableFuture<Void> upsertClanBanner(long clanId, ClanBanner banner);
+    CompletableFuture<Void> updateClanBanner(long clanId, String materialName, String patternsJson);
 
-    CompletableFuture<Optional<ClanBanner>> findClanBanner(long clanId);
+    CompletableFuture<Optional<ClanBannerData>> findClanBanner(long clanId);
 
     CompletableFuture<List<ClanListEntry>> listActiveClans();
 

@@ -10,6 +10,7 @@ public record Clan(
         String tag,
         String tagColor,
         String description,
+        ClanBannerData bannerData,
         UUID presidentUuid,
         Instant createdAt
 ) {

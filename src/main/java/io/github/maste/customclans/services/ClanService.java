@@ -2,8 +2,7 @@ package io.github.maste.customclans.services;
 
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.Clan;
-import io.github.maste.customclans.models.ClanBanner;
-import io.github.maste.customclans.models.ClanBannerPattern;
+import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanInfo;
 import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanMember;
@@ -25,8 +24,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.block.banner.Pattern;
-import org.bukkit.block.banner.PatternType;
-import org.bukkit.DyeColor;
 
 public final class ClanService {
 
@@ -298,15 +295,18 @@ public final class ClanService {
                 return CompletableFuture.completedFuture(ActionResult.failure("setbanner.invalid-meta"));
             }
 
-            List<ClanBannerPattern> patterns = bannerMeta.getPatterns().stream()
-                    .map(pattern -> new ClanBannerPattern(
-                            pattern.getColor().name(),
-                            pattern.getPattern().getIdentifier()
+            List<ClanBannerData.PatternSpec> patterns = bannerMeta.getPatterns().stream()
+                    .map(pattern -> new ClanBannerData.PatternSpec(
+                            pattern.getPattern(),
+                            pattern.getColor()
                     ))
                     .toList();
 
-            ClanBanner banner = new ClanBanner(materialName, patterns);
-            return clanRepository.upsertClanBanner(snapshotResult.value().clanId(), banner)
+            return clanRepository.updateClanBanner(
+                            snapshotResult.value().clanId(),
+                            materialName,
+                            serializePatternSpecs(patterns)
+                    )
                     .thenApply(unused -> ActionResult.success("setbanner.success", null));
         });
     }
@@ -325,9 +325,9 @@ public final class ClanService {
                     return ActionResult.failure("banner.not-set");
                 }
 
-                ClanBanner clanBanner = optionalBanner.get();
-                Material material = Material.matchMaterial(clanBanner.material());
-                if (material == null || material.isAir()) {
+                ClanBannerData clanBanner = optionalBanner.get();
+                Material material = clanBanner.material();
+                if (material.isAir()) {
                     return ActionResult.failure("banner.not-set");
                 }
 
@@ -337,15 +337,7 @@ public final class ClanService {
                 }
 
                 List<Pattern> patterns = clanBanner.patterns().stream()
-                        .map(pattern -> {
-                            DyeColor color = java.util.Arrays.stream(DyeColor.values())
-                                    .filter(candidate -> candidate.name().equals(pattern.color()))
-                                    .findFirst()
-                                    .orElse(null);
-                            PatternType patternType = PatternType.getByIdentifier(pattern.pattern());
-                            return color == null || patternType == null ? null : new Pattern(color, patternType);
-                        })
-                        .filter(java.util.Objects::nonNull)
+                        .map(pattern -> new Pattern(pattern.color(), pattern.pattern()))
                         .toList();
                 bannerMeta.setPatterns(patterns);
                 bannerItem.setItemMeta(bannerMeta);
@@ -562,5 +554,26 @@ public final class ClanService {
         return members.stream()
                 .filter(member -> member.lastKnownName().equalsIgnoreCase(targetName))
                 .findFirst();
+    }
+
+    private static String serializePatternSpecs(List<ClanBannerData.PatternSpec> patterns) {
+        if (patterns.isEmpty()) {
+            return "[]";
+        }
+
+        StringBuilder builder = new StringBuilder("[");
+        for (int index = 0; index < patterns.size(); index++) {
+            ClanBannerData.PatternSpec patternSpec = patterns.get(index);
+            if (index > 0) {
+                builder.append(',');
+            }
+            builder.append("{\"pattern\":\"")
+                    .append(patternSpec.pattern().name())
+                    .append("\",\"color\":\"")
+                    .append(patternSpec.color().name())
+                    .append("\"}");
+        }
+        builder.append(']');
+        return builder.toString();
     }
 }
