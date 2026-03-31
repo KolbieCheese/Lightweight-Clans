@@ -41,14 +41,8 @@ import io.github.maste.customclans.services.ChatService;
 import io.github.maste.customclans.services.ClanService;
 import io.github.maste.customclans.services.InviteService;
 import io.github.maste.customclans.services.api.LightweightClansApiImpl;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.sql.SQLException;
-import java.util.Comparator;
 import java.util.List;
-import java.util.stream.Stream;
 import java.util.logging.Level;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.event.HandlerList;
@@ -220,70 +214,11 @@ public final class CustomClansPlugin extends JavaPlugin {
     }
 
     private void migrateLegacyDataFolderIfNeeded() {
-        Path currentDataFolder = getDataFolder().toPath();
-        Path parentFolder = currentDataFolder.getParent();
-        if (parentFolder == null) {
-            return;
-        }
-
-        Path legacyDataFolder = parentFolder.resolve("CustomClans");
-        if (!Files.isDirectory(legacyDataFolder)) {
-            return;
-        }
-
-        Path currentConfigPath = currentDataFolder.resolve("config.yml");
-        boolean firstLightweightClansBoot = !Files.exists(currentConfigPath);
-        int legacySchemaVersion = readConfigSchemaVersion(legacyDataFolder.resolve("config.yml"));
-        boolean requiresSchemaMigration = legacySchemaVersion > 0
-                && legacySchemaVersion < CONFIG_SCHEMA_VERSION;
-
-        if (!firstLightweightClansBoot && !requiresSchemaMigration) {
-            return;
-        }
-
-        try {
-            Files.createDirectories(currentDataFolder);
-            for (String filename : MIGRATED_FILENAMES) {
-                Path source = legacyDataFolder.resolve(filename);
-                if (!Files.exists(source)) {
-                    continue;
-                }
-                Path target = currentDataFolder.resolve(filename);
-                if (Files.exists(target) && !requiresSchemaMigration) {
-                    continue;
-                }
-                Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
-            }
-            deleteDirectoryRecursively(legacyDataFolder);
-            getLogger().info("Migrated legacy CustomClans data folder into LightweightClans data folder.");
-        } catch (IOException ioException) {
-            getLogger().log(Level.WARNING, "Failed to migrate legacy CustomClans data folder", ioException);
-        }
-    }
-
-    private int readConfigSchemaVersion(Path configPath) {
-        if (!Files.exists(configPath)) {
-            return 0;
-        }
-        org.bukkit.configuration.file.YamlConfiguration yamlConfiguration = org.bukkit.configuration.file.YamlConfiguration
-                .loadConfiguration(configPath.toFile());
-        return yamlConfiguration.getInt("config-schema-version", 0);
-    }
-
-    private void deleteDirectoryRecursively(Path directory) throws IOException {
-        try (Stream<Path> paths = Files.walk(directory)) {
-            paths.sorted(Comparator.reverseOrder()).forEach(path -> {
-                try {
-                    Files.deleteIfExists(path);
-                } catch (IOException ioException) {
-                    throw new RuntimeException(ioException);
-                }
-            });
-        } catch (RuntimeException runtimeException) {
-            if (runtimeException.getCause() instanceof IOException ioException) {
-                throw ioException;
-            }
-            throw runtimeException;
-        }
+        LegacyDataFolderMigrator.migrateIfNeeded(
+                getDataFolder().toPath(),
+                getLogger(),
+                CONFIG_SCHEMA_VERSION,
+                MIGRATED_FILENAMES
+        );
     }
 }
