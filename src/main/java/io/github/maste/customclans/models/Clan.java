@@ -12,7 +12,8 @@ public record Clan(
         String description,
         ClanBannerData bannerData,
         UUID presidentUuid,
-        Instant createdAt
+        Instant createdAt,
+        Instant updatedAt
 ) {
 
     public Clan {
@@ -22,5 +23,6 @@ public record Clan(
         description = description == null ? "" : description;
         Objects.requireNonNull(presidentUuid, "presidentUuid");
         Objects.requireNonNull(createdAt, "createdAt");
+        Objects.requireNonNull(updatedAt, "updatedAt");
     }
 }

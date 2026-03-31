@@ -25,6 +25,11 @@ final class SQLiteMapper {
     }
 
     static Clan mapClan(ResultSet resultSet) throws SQLException {
+        long createdAtMillis = resultSet.getLong("created_at");
+        long updatedAtMillis = resultSet.getLong("updated_at");
+        if (updatedAtMillis == 0) {
+            updatedAtMillis = createdAtMillis;
+        }
         return new Clan(
                 resultSet.getLong("id"),
                 resultSet.getString("name"),
@@ -33,7 +38,8 @@ final class SQLiteMapper {
                 resultSet.getString("description"),
                 mapClanBannerData(resultSet).orElse(null),
                 UUID.fromString(resultSet.getString("president_uuid")),
-                Instant.ofEpochMilli(resultSet.getLong("created_at"))
+                Instant.ofEpochMilli(createdAtMillis),
+                Instant.ofEpochMilli(updatedAtMillis)
         );
     }
 

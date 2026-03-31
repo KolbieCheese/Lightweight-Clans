@@ -175,6 +175,16 @@ Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
   - `List<ClanMemberSnapshot> members`
   - `ClanBannerSnapshot banner` (nullable when banner not set)
   - `createdAt`, `updatedAt`
+    - `createdAt` is fixed at clan creation time.
+    - `updatedAt` starts equal to `createdAt` and changes when persisted mutable clan state changes:
+      - rename
+      - tag change
+      - tag color change
+      - description change
+      - banner create/change/remove
+      - president transfer
+      - disband (timestamp touched immediately before clan row deletion)
+    - membership join/leave/kick and invite lifecycle changes do **not** modify `updatedAt`.
 - `ClanMemberSnapshot`
   - `playerUuid`, `lastKnownName`, `role`, `joinedAt`
 - `ClanBannerSnapshot`

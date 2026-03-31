@@ -58,9 +58,10 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             long clanId;
+            long createdAtMillis = createdAt.toEpochMilli();
             try (PreparedStatement insertClan = connection.prepareStatement(
-                    "INSERT INTO clans (name, normalized_name, tag, tag_color, description, president_uuid, created_at) "
-                            + "VALUES (?, ?, ?, ?, '', ?, ?)",
+                    "INSERT INTO clans (name, normalized_name, tag, tag_color, description, president_uuid, created_at, updated_at) "
+                            + "VALUES (?, ?, ?, ?, '', ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS
             )) {
                 insertClan.setString(1, clanName);
@@ -68,7 +69,8 @@ public final class SQLiteClanRepository implements ClanRepository {
                 insertClan.setString(3, tag);
                 insertClan.setString(4, tagColor);
                 insertClan.setString(5, presidentUuid.toString());
-                insertClan.setLong(6, createdAt.toEpochMilli());
+                insertClan.setLong(6, createdAtMillis);
+                insertClan.setLong(7, createdAtMillis);
                 insertClan.executeUpdate();
 
                 try (ResultSet generatedKeys = insertClan.getGeneratedKeys()) {
@@ -86,13 +88,13 @@ public final class SQLiteClanRepository implements ClanRepository {
                 insertMember.setString(2, presidentUuid.toString());
                 insertMember.setString(3, presidentName);
                 insertMember.setString(4, ClanRole.PRESIDENT.name());
-                insertMember.setLong(5, createdAt.toEpochMilli());
+                insertMember.setLong(5, createdAtMillis);
                 insertMember.executeUpdate();
             }
 
             return new ClanCreateResult(
                     ClanCreateResult.Status.CREATED,
-                    new Clan(clanId, clanName, tag, tagColor, "", null, presidentUuid, createdAt)
+                    new Clan(clanId, clanName, tag, tagColor, "", null, presidentUuid, createdAt, createdAt)
             );
         });
     }
@@ -155,11 +157,12 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             try (PreparedStatement updateStatement = connection.prepareStatement(
-                    "UPDATE clans SET name = ?, normalized_name = ? WHERE id = ?"
+                    "UPDATE clans SET name = ?, normalized_name = ?, updated_at = ? WHERE id = ?"
             )) {
                 updateStatement.setString(1, newName);
                 updateStatement.setString(2, normalizedName);
-                updateStatement.setLong(3, clanId);
+                updateStatement.setLong(3, Instant.now().toEpochMilli());
+                updateStatement.setLong(4, clanId);
                 return updateStatement.executeUpdate() > 0;
             }
         });
@@ -169,9 +172,12 @@ public final class SQLiteClanRepository implements ClanRepository {
     public CompletableFuture<Void> updateClanTag(long clanId, String newTag) {
         return database.runAsync(() -> {
             try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET tag = ? WHERE id = ?")) {
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET tag = ?, updated_at = ? WHERE id = ?"
+                 )) {
                 statement.setString(1, newTag);
-                statement.setLong(2, clanId);
+                statement.setLong(2, Instant.now().toEpochMilli());
+                statement.setLong(3, clanId);
                 statement.executeUpdate();
             }
         });
@@ -181,9 +187,12 @@ public final class SQLiteClanRepository implements ClanRepository {
     public CompletableFuture<Void> updateClanColor(long clanId, String newColor) {
         return database.runAsync(() -> {
             try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET tag_color = ? WHERE id = ?")) {
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET tag_color = ?, updated_at = ? WHERE id = ?"
+                 )) {
                 statement.setString(1, newColor);
-                statement.setLong(2, clanId);
+                statement.setLong(2, Instant.now().toEpochMilli());
+                statement.setLong(3, clanId);
                 statement.executeUpdate();
             }
         });
@@ -193,9 +202,12 @@ public final class SQLiteClanRepository implements ClanRepository {
     public CompletableFuture<Void> updateClanDescription(long clanId, String description) {
         return database.runAsync(() -> {
             try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("UPDATE clans SET description = ? WHERE id = ?")) {
+                 PreparedStatement statement = connection.prepareStatement(
+                         "UPDATE clans SET description = ?, updated_at = ? WHERE id = ?"
+                 )) {
                 statement.setString(1, description);
-                statement.setLong(2, clanId);
+                statement.setLong(2, Instant.now().toEpochMilli());
+                statement.setLong(3, clanId);
                 statement.executeUpdate();
             }
         });
@@ -207,12 +219,13 @@ public final class SQLiteClanRepository implements ClanRepository {
             try (var connection = database.openConnection();
                  PreparedStatement statement = connection.prepareStatement("""
                          UPDATE clans
-                         SET banner_material = ?, banner_patterns_json = ?
+                         SET banner_material = ?, banner_patterns_json = ?, updated_at = ?
                          WHERE id = ?
                          """)) {
                 statement.setString(1, materialName);
                 statement.setString(2, patternsJson);
-                statement.setLong(3, clanId);
+                statement.setLong(3, Instant.now().toEpochMilli());
+                statement.setLong(4, clanId);
                 statement.executeUpdate();
             }
         });
@@ -341,10 +354,11 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             try (PreparedStatement updateClan = connection.prepareStatement(
-                    "UPDATE clans SET president_uuid = ? WHERE id = ?"
+                    "UPDATE clans SET president_uuid = ?, updated_at = ? WHERE id = ?"
             )) {
                 updateClan.setString(1, newPresidentUuid.toString());
-                updateClan.setLong(2, clanId);
+                updateClan.setLong(2, Instant.now().toEpochMilli());
+                updateClan.setLong(3, clanId);
                 return updateClan.executeUpdate() > 0;
             }
         });
@@ -352,12 +366,20 @@ public final class SQLiteClanRepository implements ClanRepository {
 
     @Override
     public CompletableFuture<Void> disbandClan(long clanId) {
-        return database.runAsync(() -> {
-            try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("DELETE FROM clans WHERE id = ?")) {
-                statement.setLong(1, clanId);
-                statement.executeUpdate();
+        return database.transactionAsync(connection -> {
+            try (PreparedStatement touchStatement = connection.prepareStatement(
+                    "UPDATE clans SET updated_at = ? WHERE id = ?"
+            )) {
+                touchStatement.setLong(1, Instant.now().toEpochMilli());
+                touchStatement.setLong(2, clanId);
+                touchStatement.executeUpdate();
             }
+
+            try (PreparedStatement deleteStatement = connection.prepareStatement("DELETE FROM clans WHERE id = ?")) {
+                deleteStatement.setLong(1, clanId);
+                deleteStatement.executeUpdate();
+            }
+            return null;
         });
     }
 

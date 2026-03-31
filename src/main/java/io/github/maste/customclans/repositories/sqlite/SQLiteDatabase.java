@@ -65,7 +65,8 @@ public final class SQLiteDatabase implements AutoCloseable {
                         banner_material TEXT NULL,
                         banner_patterns_json TEXT NULL,
                         president_uuid TEXT NOT NULL,
-                        created_at INTEGER NOT NULL
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
                     )
                     """);
 
@@ -115,11 +116,20 @@ public final class SQLiteDatabase implements AutoCloseable {
                 statement.execute("ALTER TABLE clans ADD COLUMN banner_patterns_json TEXT NULL");
             }
         }
+        if (!hasColumn(connection, "clans", "updated_at")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE clans ADD COLUMN updated_at INTEGER NOT NULL DEFAULT 0");
+            }
+        }
         dropLegacyClanBannersTable(connection);
 
         try (PreparedStatement statement = connection.prepareStatement("""
                 UPDATE clans
-                SET normalized_name = ?
+                SET normalized_name = ?,
+                    updated_at = CASE
+                        WHEN updated_at = 0 THEN created_at
+                        ELSE updated_at
+                    END
                 WHERE id = ?
                 """);
              PreparedStatement lookup = connection.prepareStatement("SELECT id, name FROM clans");

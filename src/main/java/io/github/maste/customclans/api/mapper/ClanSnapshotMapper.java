@@ -39,7 +39,7 @@ public final class ClanSnapshotMapper {
                 memberSnapshots,
                 bannerSnapshotMapper.map(clan.bannerData()),
                 clan.createdAt(),
-                null
+                clan.updatedAt()
         );
     }
 

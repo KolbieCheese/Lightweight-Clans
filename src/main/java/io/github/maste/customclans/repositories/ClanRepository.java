@@ -29,12 +29,24 @@ public interface ClanRepository {
 
     CompletableFuture<Boolean> renameClan(long clanId, String newName);
 
+    /**
+     * Updates clan tag and refreshes {@code updated_at}.
+     */
     CompletableFuture<Void> updateClanTag(long clanId, String newTag);
 
+    /**
+     * Updates clan color and refreshes {@code updated_at}.
+     */
     CompletableFuture<Void> updateClanColor(long clanId, String newColor);
 
+    /**
+     * Updates clan description and refreshes {@code updated_at}.
+     */
     CompletableFuture<Void> updateClanDescription(long clanId, String description);
 
+    /**
+     * Updates clan banner fields and refreshes {@code updated_at}.
+     */
     CompletableFuture<Void> updateClanBanner(long clanId, String materialName, String patternsJson);
 
     CompletableFuture<Optional<ClanBannerData>> findClanBanner(long clanId);
