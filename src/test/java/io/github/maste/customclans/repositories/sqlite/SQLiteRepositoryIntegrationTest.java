@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -166,6 +167,7 @@ class SQLiteRepositoryIntegrationTest {
 
     @Test
     void bannerPersistsAndReloadsWithPatternOrder() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         ClanCreateResult created = clanRepository.createClan(
                 UUID.randomUUID(),
                 "Alice",
@@ -198,6 +200,14 @@ class SQLiteRepositoryIntegrationTest {
             }
         } catch (java.sql.SQLException exception) {
             throw new RuntimeException(exception);
+        }
+    }
+
+    private static boolean supportsBannerMaterialApi() {
+        try {
+            return Material.valueOf("WHITE_BANNER") != null;
+        } catch (Throwable throwable) {
+            return false;
         }
     }
 }

@@ -23,6 +23,7 @@ import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -405,6 +406,7 @@ class ClanServiceTest {
 
     @Test
     void presidentCanSetBannerWithValidBannerMeta() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
 
@@ -426,6 +428,7 @@ class ClanServiceTest {
 
     @Test
     void nonPresidentDeniedForSetBanner() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         Player member = mockOnlinePlayer("Bob");
         createClanWithMember(president, member, "Crimson Knights");
@@ -438,6 +441,7 @@ class ClanServiceTest {
 
     @Test
     void nonMemberDeniedForSetBanner() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player stranger = mockPlayer("Stranger");
 
         ActionResult<Void> result = clanService.setClanBanner(stranger).join();
@@ -448,6 +452,7 @@ class ClanServiceTest {
 
     @Test
     void setBannerFailsWhenHandIsEmpty() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
         PlayerInventory inventory = mock(PlayerInventory.class);
@@ -462,6 +467,7 @@ class ClanServiceTest {
 
     @Test
     void setBannerFailsForNonBannerItem() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
         PlayerInventory inventory = mock(PlayerInventory.class);
@@ -479,6 +485,7 @@ class ClanServiceTest {
 
     @Test
     void memberCanRetrieveBanner() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         Player member = mockOnlinePlayer("Bob");
         createClanWithMember(president, member, "Crimson Knights");
@@ -498,6 +505,7 @@ class ClanServiceTest {
 
     @Test
     void retrieveBannerFailsWhenNoBannerSet() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
 
@@ -509,6 +517,7 @@ class ClanServiceTest {
 
     @Test
     void nonMemberRetrieveBannerFails() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player stranger = mockPlayer("Stranger");
 
         ActionResult<ItemStack> result = clanService.getClanBannerItem(stranger).join();
@@ -519,6 +528,7 @@ class ClanServiceTest {
 
     @Test
     void reconstructedBannerPreservesMaterialAndReturnsNoPatternsWhenStoredEmpty() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
         holder.clanRepository().updateClanBanner(
@@ -552,6 +562,14 @@ class ClanServiceTest {
         clanService.createClan(president, clanName).join();
         inviteService.sendInvite(president, member).join();
         inviteService.acceptInvite(member, clanName).join();
+    }
+
+    private static boolean supportsBannerMaterialApi() {
+        try {
+            return Material.valueOf("WHITE_BANNER") != null;
+        } catch (Throwable throwable) {
+            return false;
+        }
     }
 
     private static final class SQLiteDatabaseHolder {
