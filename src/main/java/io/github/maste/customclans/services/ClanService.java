@@ -327,7 +327,7 @@ public final class ClanService {
             }
 
             ItemStack itemInHand = player.getInventory().getItemInMainHand();
-            if (itemInHand == null || itemInHand.getAmount() <= 0 || itemInHand.getType().isAir()) {
+            if (itemInHand == null || itemInHand.getAmount() <= 0 || isAirMaterial(itemInHand.getType())) {
                 return CompletableFuture.completedFuture(ActionResult.failure("banner.must-hold-banner"));
             }
 
@@ -381,7 +381,7 @@ public final class ClanService {
 
                 ClanBannerData clanBanner = optionalBanner.get();
                 Optional<Material> resolvedMaterial = resolveBannerMaterial(clanBanner.materialId());
-                if (resolvedMaterial.isEmpty() || resolvedMaterial.get().isAir()) {
+                if (resolvedMaterial.isEmpty() || isAirMaterial(resolvedMaterial.get())) {
                     return ActionResult.failure("banner.not-set");
                 }
 
@@ -732,6 +732,12 @@ public final class ClanService {
         }
 
         return patternType.toString().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isAirMaterial(Material material) {
+        return material == Material.AIR
+                || material == Material.CAVE_AIR
+                || material == Material.VOID_AIR;
     }
 
     private String dyeColorId(org.bukkit.DyeColor dyeColor) {
