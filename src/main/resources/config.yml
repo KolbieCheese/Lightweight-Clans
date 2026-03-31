@@ -158,7 +158,9 @@ name-moderation:
 # Format placeholders: {clan}, {user}, {message}
 discordsrv-clan-chat-relay:
   enabled: false
-  # When true, still forwards to Discord even if ClanChatMessageEvent is cancelled.
+  # Controls Discord forwarding behavior when ClanChatMessageEvent is cancelled:
+  # false -> cancellation suppresses both in-game delivery and Discord relay.
+  # true  -> cancellation suppresses in-game delivery only; Discord relay still proceeds.
   forward-when-cancelled: false
   channel: "global"
   format: "[{clan}] {user}: {message}"

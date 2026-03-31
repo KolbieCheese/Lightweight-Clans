@@ -84,6 +84,12 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
 - max clan size
 - public and clan chat formatting
 - clan chat availability and toggle availability
+- DiscordSRV clan chat relay behavior via `discordsrv-clan-chat-relay.*`
+
+Discord relay cancellation behavior is controlled by:
+
+- `discordsrv-clan-chat-relay.forward-when-cancelled: false` (default): cancellation suppresses both in-game clan chat and Discord relay.
+- `discordsrv-clan-chat-relay.forward-when-cancelled: true`: cancellation suppresses in-game clan chat only; Discord relay still proceeds.
 
 `messages.yml` contains all player-facing strings, including usage text, public lookup output, invite flow, and management messages.
 
