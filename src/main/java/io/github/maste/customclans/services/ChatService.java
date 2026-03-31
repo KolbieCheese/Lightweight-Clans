@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
@@ -252,7 +253,7 @@ public final class ChatService {
                 resultFuture.completeExceptionally(throwable);
             }
         }
-        return resultFuture;
+        return resultFuture.completeOnTimeout(ActionResult.success("", null), 5, TimeUnit.SECONDS);
     }
 
     private void broadcastClanMessage(
