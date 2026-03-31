@@ -1,9 +1,10 @@
 package io.github.maste.customclans.services.api;
 
-import io.github.maste.customclans.api.ClanBannerSnapshot;
-import io.github.maste.customclans.api.ClanMemberSnapshot;
-import io.github.maste.customclans.api.ClanSnapshot;
 import io.github.maste.customclans.api.LightweightClansApi;
+import io.github.maste.customclans.api.model.BannerPatternSnapshot;
+import io.github.maste.customclans.api.model.ClanBannerSnapshot;
+import io.github.maste.customclans.api.model.ClanMemberSnapshot;
+import io.github.maste.customclans.api.model.ClanSnapshot;
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanMember;
@@ -51,7 +52,7 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
 
     @Override
     public Optional<ClanBannerSnapshot> getBannerForClan(long clanId) {
-        return clanRepository.findClanBanner(clanId).join().map(data -> mapClanBannerSnapshot(clanId, data));
+        return clanRepository.findClanBanner(clanId).join().map(this::mapClanBannerSnapshot);
     }
 
     @Override
@@ -62,6 +63,16 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
     }
 
     private ClanSnapshot mapClanSnapshot(Clan clan) {
+        List<ClanMemberSnapshot> memberSnapshots = clanMemberRepository.findByClanId(clan.id()).join().stream()
+                .map(this::mapClanMemberSnapshot)
+                .toList();
+
+        String presidentName = memberSnapshots.stream()
+                .filter(member -> member.playerUuid().equals(clan.presidentUuid()))
+                .map(ClanMemberSnapshot::lastKnownName)
+                .findFirst()
+                .orElse(null);
+
         return new ClanSnapshot(
                 clan.id(),
                 clan.name(),
@@ -70,13 +81,17 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
                 clan.tagColor(),
                 clan.description(),
                 clan.presidentUuid(),
-                clan.createdAt()
+                presidentName,
+                memberSnapshots.size(),
+                memberSnapshots,
+                mapClanBannerSnapshot(clan.bannerData()),
+                clan.createdAt(),
+                null
         );
     }
 
     private ClanMemberSnapshot mapClanMemberSnapshot(ClanMember member) {
         return new ClanMemberSnapshot(
-                member.clanId(),
                 member.playerUuid(),
                 member.lastKnownName(),
                 member.role(),
@@ -84,14 +99,18 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
         );
     }
 
-    private ClanBannerSnapshot mapClanBannerSnapshot(long clanId, ClanBannerData data) {
-        List<ClanBannerSnapshot.PatternSnapshot> patternSnapshots = data.patterns().stream()
-                .map(pattern -> new ClanBannerSnapshot.PatternSnapshot(
-                        pattern.pattern().name(),
-                        pattern.color().name()
+    private ClanBannerSnapshot mapClanBannerSnapshot(ClanBannerData data) {
+        if (data == null) {
+            return null;
+        }
+
+        List<BannerPatternSnapshot> patternSnapshots = data.patterns().stream()
+                .map(pattern -> new BannerPatternSnapshot(
+                        pattern.pattern().name().toLowerCase(),
+                        pattern.color().name().toLowerCase()
                 ))
                 .toList();
 
-        return new ClanBannerSnapshot(clanId, data.material().name(), patternSnapshots);
+        return new ClanBannerSnapshot(data.material().name(), null, patternSnapshots);
     }
 }

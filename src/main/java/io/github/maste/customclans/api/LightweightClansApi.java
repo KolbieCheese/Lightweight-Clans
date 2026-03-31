@@ -1,5 +1,8 @@
 package io.github.maste.customclans.api;
 
+import io.github.maste.customclans.api.model.ClanBannerSnapshot;
+import io.github.maste.customclans.api.model.ClanMemberSnapshot;
+import io.github.maste.customclans.api.model.ClanSnapshot;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
