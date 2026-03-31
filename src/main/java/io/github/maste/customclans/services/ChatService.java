@@ -233,24 +233,26 @@ public final class ChatService {
             return CompletableFuture.completedFuture(ActionResult.success("", null));
         }
 
+        CompletableFuture<ActionResult<Void>> resultFuture = new CompletableFuture<>();
         Runnable dispatchTask = () -> {
             try {
                 broadcastClanMessage(sender, snapshot, message, rawMessage, members, toggleRouted);
+                resultFuture.complete(ActionResult.success("", null));
             } catch (Throwable throwable) {
-                plugin.getLogger().log(Level.WARNING, "Failed to dispatch clan chat message task", throwable);
+                resultFuture.completeExceptionally(throwable);
             }
         };
 
-        try {
-            if (server.isPrimaryThread()) {
-                dispatchTask.run();
-            } else {
+        if (server.isPrimaryThread()) {
+            dispatchTask.run();
+        } else {
+            try {
                 server.getScheduler().runTask(plugin, dispatchTask);
+            } catch (Throwable throwable) {
+                resultFuture.completeExceptionally(throwable);
             }
-            return CompletableFuture.completedFuture(ActionResult.success("", null));
-        } catch (Throwable throwable) {
-            return CompletableFuture.failedFuture(throwable);
         }
+        return resultFuture;
     }
 
     private void broadcastClanMessage(
