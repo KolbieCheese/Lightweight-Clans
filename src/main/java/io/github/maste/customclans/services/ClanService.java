@@ -1,5 +1,14 @@
 package io.github.maste.customclans.services;
 
+import io.github.maste.customclans.api.event.ClanBannerUpdatedEvent;
+import io.github.maste.customclans.api.event.ClanCreatedEvent;
+import io.github.maste.customclans.api.event.ClanDeletedEvent;
+import io.github.maste.customclans.api.event.ClanMemberKickedEvent;
+import io.github.maste.customclans.api.event.ClanMemberLeftEvent;
+import io.github.maste.customclans.api.event.ClanPresidentTransferredEvent;
+import io.github.maste.customclans.api.event.ClanUpdatedEvent;
+import io.github.maste.customclans.api.model.ClanMemberSnapshot;
+import io.github.maste.customclans.api.model.ClanSnapshot;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanBannerData;
@@ -10,6 +19,7 @@ import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.models.PlayerClanSnapshot;
 import io.github.maste.customclans.repositories.ClanMemberRepository;
 import io.github.maste.customclans.repositories.ClanRepository;
+import io.github.maste.customclans.services.api.ApiSnapshotMapper;
 import io.github.maste.customclans.util.ActionResult;
 import io.github.maste.customclans.util.ValidationUtil;
 import java.time.Instant;
@@ -19,11 +29,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.event.Event;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.block.banner.Pattern;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ClanService {
 
@@ -32,18 +45,23 @@ public final class ClanService {
     private final ClanMemberRepository clanMemberRepository;
     private final ChatService chatService;
     private final NameModerationPolicy nameModerationPolicy;
+    private final JavaPlugin plugin;
+    private final ApiSnapshotMapper snapshotMapper;
 
     public ClanService(
+            JavaPlugin plugin,
             PluginConfig pluginConfig,
             ClanRepository clanRepository,
             ClanMemberRepository clanMemberRepository,
             ChatService chatService
     ) {
+        this.plugin = plugin;
         this.pluginConfig = pluginConfig;
         this.clanRepository = clanRepository;
         this.clanMemberRepository = clanMemberRepository;
         this.chatService = chatService;
         this.nameModerationPolicy = new NameModerationPolicy(pluginConfig.nameModerationConfig());
+        this.snapshotMapper = new ApiSnapshotMapper();
     }
 
     public CompletableFuture<Void> touchPlayerName(Player player) {
@@ -74,11 +92,14 @@ public final class ClanService {
                 pluginConfig.defaultClanTagColorId(),
                 Instant.now()
         ).thenCompose(result -> switch (result.status()) {
-            case CREATED -> chatService.refreshSnapshot(player.getUniqueId()).thenApply(unused -> ActionResult.success(
-                    "create.success",
-                    Map.of("name", trimmedName, "tag", derivedTag),
-                    result.clan()
-            ));
+            case CREATED -> chatService.refreshSnapshot(player.getUniqueId())
+                    .thenCompose(unused -> loadRequiredClanSnapshot(result.clan().id()))
+                    .thenCompose(snapshot -> publishEvent(new ClanCreatedEvent(snapshot))
+                            .thenApply(eventUnused -> ActionResult.success(
+                                    "create.success",
+                                    Map.of("name", trimmedName, "tag", derivedTag),
+                                    result.clan()
+                            )));
             case ALREADY_IN_CLAN -> CompletableFuture.completedFuture(ActionResult.failure("common.already-in-clan"));
             case NAME_TAKEN -> CompletableFuture.completedFuture(ActionResult.failure("create.name-taken"));
         });
@@ -122,14 +143,21 @@ public final class ClanService {
                 return CompletableFuture.completedFuture(ActionResult.failure("leave.president-cannot-leave"));
             }
 
-            return clanMemberRepository.removeMember(snapshot.clanId(), player.getUniqueId()).thenApply(removed -> {
-                chatService.clearPlayerState(player.getUniqueId());
-                return ActionResult.success(
-                        "leave.success",
-                        Map.of("clan", snapshot.clanName()),
-                        null
-                );
-            });
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanMemberRepository.removeMember(snapshot.clanId(), player.getUniqueId()).thenCompose(removed ->
+                            loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(after ->
+                                    publishEvent(new ClanMemberLeftEvent(
+                                            before,
+                                            after,
+                                            toMemberSnapshot(player.getUniqueId(), before)
+                                    )).thenApply(unused -> {
+                                        chatService.clearPlayerState(player.getUniqueId());
+                                        return ActionResult.success(
+                                                "leave.success",
+                                                Map.of("clan", snapshot.clanName()),
+                                                null
+                                        );
+                                    }))));
         });
     }
 
@@ -157,17 +185,21 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return clanRepository.renameClan(snapshot.clanId(), trimmedName).thenCompose(renamed -> {
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanRepository.renameClan(snapshot.clanId(), trimmedName).thenCompose(renamed -> {
                 if (!renamed) {
                     return CompletableFuture.completedFuture(ActionResult.failure("rename.name-taken"));
                 }
 
-                return refreshClanSnapshots(snapshot.clanId()).thenApply(unused -> ActionResult.success(
-                        "rename.success",
-                        Map.of("name", trimmedName),
-                        null
-                ));
-            });
+                return refreshClanSnapshots(snapshot.clanId())
+                        .thenCompose(unused -> loadRequiredClanSnapshot(snapshot.clanId()))
+                        .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("name")))
+                                .thenApply(eventUnused -> ActionResult.success(
+                                        "rename.success",
+                                        Map.of("name", trimmedName),
+                                        null
+                                )));
+            }));
         });
     }
 
@@ -195,12 +227,16 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return clanRepository.updateClanTag(snapshot.clanId(), trimmedTag).thenCompose(unused ->
-                    refreshClanSnapshots(snapshot.clanId()).thenApply(refreshUnused -> ActionResult.success(
-                            "tag.success",
-                            Map.of("tag", trimmedTag),
-                            null
-                    )));
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanRepository.updateClanTag(snapshot.clanId(), trimmedTag).thenCompose(unused ->
+                            refreshClanSnapshots(snapshot.clanId())
+                                    .thenCompose(refreshUnused -> loadRequiredClanSnapshot(snapshot.clanId()))
+                                    .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("tag")))
+                                            .thenApply(eventUnused -> ActionResult.success(
+                                                    "tag.success",
+                                                    Map.of("tag", trimmedTag),
+                                                    null
+                                            )))));
         });
     }
 
@@ -229,12 +265,16 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return clanRepository.updateClanColor(snapshot.clanId(), normalizedColor).thenCompose(unused ->
-                    refreshClanSnapshots(snapshot.clanId()).thenApply(refreshUnused -> ActionResult.success(
-                            "color.success",
-                            Map.of("color", pluginConfig.formatColorDisplayName(normalizedColor)),
-                            null
-                    )));
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanRepository.updateClanColor(snapshot.clanId(), normalizedColor).thenCompose(unused ->
+                            refreshClanSnapshots(snapshot.clanId())
+                                    .thenCompose(refreshUnused -> loadRequiredClanSnapshot(snapshot.clanId()))
+                                    .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("tagColor")))
+                                            .thenApply(eventUnused -> ActionResult.success(
+                                                    "color.success",
+                                                    Map.of("color", pluginConfig.formatColorDisplayName(normalizedColor)),
+                                                    null
+                                            )))));
         });
     }
 
@@ -259,12 +299,16 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return clanRepository.updateClanDescription(snapshot.clanId(), trimmedDescription).thenCompose(unused ->
-                    refreshClanSnapshots(snapshot.clanId()).thenApply(refreshUnused -> ActionResult.success(
-                            "description.success",
-                            Map.of("description", trimmedDescription),
-                            null
-                    )));
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                    clanRepository.updateClanDescription(snapshot.clanId(), trimmedDescription).thenCompose(unused ->
+                            refreshClanSnapshots(snapshot.clanId())
+                                    .thenCompose(refreshUnused -> loadRequiredClanSnapshot(snapshot.clanId()))
+                                    .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("description")))
+                                            .thenApply(eventUnused -> ActionResult.success(
+                                                    "description.success",
+                                                    Map.of("description", trimmedDescription),
+                                                    null
+                                            )))));
         });
     }
 
@@ -302,12 +346,17 @@ public final class ClanService {
                     ))
                     .toList();
 
-            return clanRepository.updateClanBanner(
+            long clanId = snapshotResult.value().clanId();
+            return loadRequiredClanSnapshot(clanId).thenCompose(before -> clanRepository.updateClanBanner(
                             snapshotResult.value().clanId(),
                             materialName,
                             serializePatternSpecs(patterns)
                     )
-                    .thenApply(unused -> ActionResult.success("banner.set-success", null));
+                    .thenCompose(unused -> refreshClanSnapshots(clanId))
+                    .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
+                    .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
+                            .thenCompose(eventUnused -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner"))))
+                            .thenApply(updatedUnused -> ActionResult.success("banner.set-success", null)));
         });
     }
 
@@ -429,14 +478,22 @@ public final class ClanService {
                     return CompletableFuture.completedFuture(ActionResult.failure("common.target-is-president"));
                 }
 
-                return clanMemberRepository.removeMember(snapshot.clanId(), clanMember.playerUuid()).thenApply(removed -> {
-                    chatService.clearPlayerState(clanMember.playerUuid());
-                    return ActionResult.success(
-                            "kick.success-self",
-                            Map.of("player", clanMember.lastKnownName(), "clan", snapshot.clanName()),
-                            clanMember
-                    );
-                });
+                return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
+                        clanMemberRepository.removeMember(snapshot.clanId(), clanMember.playerUuid()).thenCompose(removed ->
+                                loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(after ->
+                                        publishEvent(new ClanMemberKickedEvent(
+                                                before,
+                                                after,
+                                                snapshotMapper.mapClanMemberSnapshot(clanMember),
+                                                toMemberSnapshot(player.getUniqueId(), before)
+                                        )).thenApply(unused -> {
+                                            chatService.clearPlayerState(clanMember.playerUuid());
+                                            return ActionResult.success(
+                                                    "kick.success-self",
+                                                    Map.of("player", clanMember.lastKnownName(), "clan", snapshot.clanName()),
+                                                    clanMember
+                                            );
+                                        }))));
             });
         });
     }
@@ -462,7 +519,7 @@ public final class ClanService {
                     return CompletableFuture.completedFuture(ActionResult.failure("common.self-target"));
                 }
 
-                return clanRepository.transferLeadership(
+                return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before -> clanRepository.transferLeadership(
                         snapshot.clanId(),
                         player.getUniqueId(),
                         clanMember.playerUuid()
@@ -471,12 +528,21 @@ public final class ClanService {
                         return CompletableFuture.completedFuture(ActionResult.failure("errors.internal"));
                     }
 
-                    return refreshClanSnapshots(snapshot.clanId()).thenApply(unused -> ActionResult.success(
-                            "transfer.success-self",
-                            Map.of("player", clanMember.lastKnownName(), "clan", snapshot.clanName()),
-                            clanMember
-                    ));
-                });
+                    return refreshClanSnapshots(snapshot.clanId())
+                            .thenCompose(unused -> loadRequiredClanSnapshot(snapshot.clanId()))
+                            .thenCompose(after -> publishEvent(new ClanPresidentTransferredEvent(
+                                    before,
+                                    after,
+                                    toMemberSnapshot(player.getUniqueId(), before),
+                                    toMemberSnapshot(clanMember.playerUuid(), after)
+                            )).thenCompose(eventUnused ->
+                                    publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("presidentUuid")))
+                            ).thenApply(updatedUnused -> ActionResult.success(
+                                    "transfer.success-self",
+                                    Map.of("player", clanMember.lastKnownName(), "clan", snapshot.clanName()),
+                                    clanMember
+                            )));
+                }));
             });
         });
     }
@@ -491,15 +557,16 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members ->
-                    clanRepository.disbandClan(snapshot.clanId()).thenApply(unused -> {
+            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before -> clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members ->
+                    clanRepository.disbandClan(snapshot.clanId()).thenCompose(unused -> publishEvent(new ClanDeletedEvent(before))
+                            .thenApply(eventUnused -> {
                         chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
                         return ActionResult.success(
                                 "disband.success-self",
                                 Map.of("clan", snapshot.clanName()),
                                 members
                         );
-                    })
+                    }))
             );
         });
     }
@@ -575,5 +642,44 @@ public final class ClanService {
         }
         builder.append(']');
         return builder.toString();
+    }
+
+    private CompletableFuture<ClanSnapshot> loadRequiredClanSnapshot(long clanId) {
+        return clanRepository.findById(clanId).thenCompose(optionalClan -> {
+            if (optionalClan.isEmpty()) {
+                return CompletableFuture.failedFuture(new IllegalStateException("Clan not found for id " + clanId));
+            }
+            Clan clan = optionalClan.get();
+            return clanMemberRepository.findByClanId(clanId)
+                    .thenApply(members -> snapshotMapper.mapClanSnapshot(clan, members));
+        });
+    }
+
+    private ClanMemberSnapshot toMemberSnapshot(UUID playerUuid, ClanSnapshot clanSnapshot) {
+        return clanSnapshot.members().stream()
+                .filter(member -> member.playerUuid().equals(playerUuid))
+                .findFirst()
+                .orElseGet(() -> new ClanMemberSnapshot(playerUuid, "Unknown", ClanRole.MEMBER, Instant.EPOCH));
+    }
+
+    private CompletableFuture<Void> publishEvent(Event event) {
+        if (!plugin.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        if (Bukkit.isPrimaryThread()) {
+            plugin.getServer().getPluginManager().callEvent(event);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            try {
+                plugin.getServer().getPluginManager().callEvent(event);
+                future.complete(null);
+            } catch (Throwable throwable) {
+                future.completeExceptionally(throwable);
+            }
+        });
+        return future;
     }
 }

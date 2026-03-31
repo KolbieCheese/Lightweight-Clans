@@ -196,8 +196,8 @@ public final class CustomClansPlugin extends JavaPlugin {
                 : new NoopClanChatRelay();
 
         chatService = new ChatService(this, pluginConfig, clanMemberRepository, clanChatRelay, messageManager.miniMessage());
-        clanService = new ClanService(pluginConfig, clanRepository, clanMemberRepository, chatService);
-        inviteService = new InviteService(pluginConfig, clanRepository, clanMemberRepository, clanInviteRepository, chatService);
+        clanService = new ClanService(this, pluginConfig, clanRepository, clanMemberRepository, chatService);
+        inviteService = new InviteService(this, pluginConfig, clanRepository, clanMemberRepository, clanInviteRepository, chatService);
     }
 
 

@@ -1,5 +1,8 @@
 package io.github.maste.customclans.services;
 
+import io.github.maste.customclans.api.event.ClanMemberJoinedEvent;
+import io.github.maste.customclans.api.model.ClanMemberSnapshot;
+import io.github.maste.customclans.api.model.ClanSnapshot;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.Clan;
 import io.github.maste.customclans.models.ClanInvite;
@@ -7,12 +10,16 @@ import io.github.maste.customclans.models.PlayerClanSnapshot;
 import io.github.maste.customclans.repositories.ClanInviteRepository;
 import io.github.maste.customclans.repositories.ClanMemberRepository;
 import io.github.maste.customclans.repositories.ClanRepository;
+import io.github.maste.customclans.services.api.ApiSnapshotMapper;
 import io.github.maste.customclans.util.ActionResult;
 import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.bukkit.Bukkit;
+import org.bukkit.event.Event;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
 
 public final class InviteService {
 
@@ -21,19 +28,24 @@ public final class InviteService {
     private final ClanMemberRepository clanMemberRepository;
     private final ClanInviteRepository clanInviteRepository;
     private final ChatService chatService;
+    private final JavaPlugin plugin;
+    private final ApiSnapshotMapper snapshotMapper;
 
     public InviteService(
+            JavaPlugin plugin,
             PluginConfig pluginConfig,
             ClanRepository clanRepository,
             ClanMemberRepository clanMemberRepository,
             ClanInviteRepository clanInviteRepository,
             ChatService chatService
     ) {
+        this.plugin = plugin;
         this.pluginConfig = pluginConfig;
         this.clanRepository = clanRepository;
         this.clanMemberRepository = clanMemberRepository;
         this.clanInviteRepository = clanInviteRepository;
         this.chatService = chatService;
+        this.snapshotMapper = new ApiSnapshotMapper();
     }
 
     public CompletableFuture<ActionResult<ClanInvite>> sendInvite(Player player, Player target) {
@@ -98,18 +110,24 @@ public final class InviteService {
             }
 
             Clan clan = optionalClan.get();
-            return clanInviteRepository.acceptInvite(
+            return loadRequiredClanSnapshot(clan.id()).thenCompose(before -> clanInviteRepository.acceptInvite(
                     clan.id(),
                     player.getUniqueId(),
                     player.getName(),
                     pluginConfig.maxClanSize(),
                     Instant.now()
             ).thenCompose(result -> switch (result.status()) {
-                case ACCEPTED -> chatService.refreshSnapshot(player.getUniqueId()).thenApply(unused -> ActionResult.success(
-                        "accept.success",
-                        Map.of("clan", result.clan().name()),
-                        result.clan()
-                ));
+                case ACCEPTED -> chatService.refreshSnapshot(player.getUniqueId())
+                        .thenCompose(unused -> loadRequiredClanSnapshot(clan.id()))
+                        .thenCompose(after -> publishEvent(new ClanMemberJoinedEvent(
+                                before,
+                                after,
+                                toMemberSnapshot(after, player.getUniqueId())
+                        )).thenApply(eventUnused -> ActionResult.success(
+                                "accept.success",
+                                Map.of("clan", result.clan().name()),
+                                result.clan()
+                        )));
                 case NO_INVITE -> CompletableFuture.completedFuture(ActionResult.failure("accept.no-invite"));
                 case EXPIRED -> CompletableFuture.completedFuture(ActionResult.failure(
                         "accept.expired",
@@ -119,7 +137,7 @@ public final class InviteService {
                 case ALREADY_IN_CLAN -> chatService.refreshSnapshot(player.getUniqueId())
                         .thenApply(unused -> ActionResult.<Clan>failure("accept.already-in-clan"));
                 case CLAN_FULL -> CompletableFuture.completedFuture(ActionResult.failure("accept.clan-full"));
-            });
+            }));
         });
     }
 
@@ -166,5 +184,43 @@ public final class InviteService {
             }
             return ActionResult.success("", optionalSnapshot.get());
         });
+    }
+
+    private CompletableFuture<ClanSnapshot> loadRequiredClanSnapshot(long clanId) {
+        return clanRepository.findById(clanId).thenCompose(optionalClan -> {
+            if (optionalClan.isEmpty()) {
+                return CompletableFuture.failedFuture(new IllegalStateException("Clan not found for id " + clanId));
+            }
+            return clanMemberRepository.findByClanId(clanId)
+                    .thenApply(members -> snapshotMapper.mapClanSnapshot(optionalClan.get(), members));
+        });
+    }
+
+    private ClanMemberSnapshot toMemberSnapshot(ClanSnapshot snapshot, UUID playerUuid) {
+        return snapshot.members().stream()
+                .filter(member -> member.playerUuid().equals(playerUuid))
+                .findFirst()
+                .orElseGet(() -> new ClanMemberSnapshot(playerUuid, "Unknown", io.github.maste.customclans.models.ClanRole.MEMBER, Instant.EPOCH));
+    }
+
+    private CompletableFuture<Void> publishEvent(Event event) {
+        if (!plugin.isEnabled()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        if (Bukkit.isPrimaryThread()) {
+            plugin.getServer().getPluginManager().callEvent(event);
+            return CompletableFuture.completedFuture(null);
+        }
+
+        CompletableFuture<Void> future = new CompletableFuture<>();
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            try {
+                plugin.getServer().getPluginManager().callEvent(event);
+                future.complete(null);
+            } catch (Throwable throwable) {
+                future.completeExceptionally(throwable);
+            }
+        });
+        return future;
     }
 }

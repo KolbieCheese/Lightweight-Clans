@@ -1,16 +1,13 @@
 package io.github.maste.customclans.services.api;
 
 import io.github.maste.customclans.api.LightweightClansApi;
-import io.github.maste.customclans.api.model.BannerPatternSnapshot;
 import io.github.maste.customclans.api.model.ClanBannerSnapshot;
 import io.github.maste.customclans.api.model.ClanMemberSnapshot;
 import io.github.maste.customclans.api.model.ClanSnapshot;
 import io.github.maste.customclans.models.Clan;
-import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanMember;
 import io.github.maste.customclans.repositories.ClanMemberRepository;
 import io.github.maste.customclans.repositories.ClanRepository;
-import io.github.maste.customclans.util.ValidationUtil;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,10 +16,12 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
 
     private final ClanRepository clanRepository;
     private final ClanMemberRepository clanMemberRepository;
+    private final ApiSnapshotMapper snapshotMapper;
 
     public LightweightClansApiImpl(ClanRepository clanRepository, ClanMemberRepository clanMemberRepository) {
         this.clanRepository = clanRepository;
         this.clanMemberRepository = clanMemberRepository;
+        this.snapshotMapper = new ApiSnapshotMapper();
     }
 
     @Override
@@ -52,7 +51,7 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
 
     @Override
     public Optional<ClanBannerSnapshot> getBannerForClan(long clanId) {
-        return clanRepository.findClanBanner(clanId).join().map(this::mapClanBannerSnapshot);
+        return clanRepository.findClanBanner(clanId).join().map(snapshotMapper::mapClanBannerSnapshot);
     }
 
     @Override
@@ -63,54 +62,10 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
     }
 
     private ClanSnapshot mapClanSnapshot(Clan clan) {
-        List<ClanMemberSnapshot> memberSnapshots = clanMemberRepository.findByClanId(clan.id()).join().stream()
-                .map(this::mapClanMemberSnapshot)
-                .toList();
-
-        String presidentName = memberSnapshots.stream()
-                .filter(member -> member.playerUuid().equals(clan.presidentUuid()))
-                .map(ClanMemberSnapshot::lastKnownName)
-                .findFirst()
-                .orElse(null);
-
-        return new ClanSnapshot(
-                clan.id(),
-                clan.name(),
-                ValidationUtil.normalizeClanName(clan.name()),
-                clan.tag(),
-                clan.tagColor(),
-                clan.description(),
-                clan.presidentUuid(),
-                presidentName,
-                memberSnapshots.size(),
-                memberSnapshots,
-                mapClanBannerSnapshot(clan.bannerData()),
-                clan.createdAt(),
-                null
-        );
+        return snapshotMapper.mapClanSnapshot(clan, clanMemberRepository.findByClanId(clan.id()).join());
     }
 
     private ClanMemberSnapshot mapClanMemberSnapshot(ClanMember member) {
-        return new ClanMemberSnapshot(
-                member.playerUuid(),
-                member.lastKnownName(),
-                member.role(),
-                member.joinedAt()
-        );
-    }
-
-    private ClanBannerSnapshot mapClanBannerSnapshot(ClanBannerData data) {
-        if (data == null) {
-            return null;
-        }
-
-        List<BannerPatternSnapshot> patternSnapshots = data.patterns().stream()
-                .map(pattern -> new BannerPatternSnapshot(
-                        pattern.pattern().name().toLowerCase(),
-                        pattern.color().name().toLowerCase()
-                ))
-                .toList();
-
-        return new ClanBannerSnapshot(data.material().name(), null, patternSnapshots);
+        return snapshotMapper.mapClanMemberSnapshot(member);
     }
 }
