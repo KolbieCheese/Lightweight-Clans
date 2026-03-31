@@ -133,7 +133,8 @@ if (registration == null) {
 LightweightClansApi clansApi = registration.getProvider();
 ```
 
-All DTO imports for integrations should come from `io.github.maste.customclans.api.model`.
+All DTO imports for integrations should come from the single canonical export package
+`io.github.maste.customclans.api.model`.
 Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
 `ClanBannerSnapshot` have been removed.
 

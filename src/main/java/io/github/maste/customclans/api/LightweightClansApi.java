@@ -10,6 +10,10 @@ import java.util.UUID;
 /**
  * Public read-only integration API for Lightweight Clans snapshots.
  *
+ * <p>Snapshot DTOs returned by this API are exported from the canonical package
+ * {@code io.github.maste.customclans.api.model}. Legacy DTO types previously available directly
+ * under {@code io.github.maste.customclans.api} are no longer exported.
+ *
  * <p>Lifecycle events exposed under {@code io.github.maste.customclans.api.event} are guaranteed to
  * be dispatched on the main server thread <strong>after</strong> persistence operations complete, so
  * listeners can immediately consume durable state through this API.
