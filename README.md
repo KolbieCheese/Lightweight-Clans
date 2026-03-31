@@ -105,15 +105,89 @@ Clan chat supports both `/clan chat <message>` and `/clan chat toggle`. The `cla
 
 ## Plugin Integrations
 
-Lightweight Clans exposes a public Bukkit/Paper integration event at `io.github.maste.customclans.api.event.ClanChatMessageEvent`.
+Lightweight Clans ships an export/integration foundation so other plugins can consume clan data and lifecycle updates without touching internal services or repositories. The foundation consists of:
 
-- Fired for `/clan chat <message>`
-- Fired for clan-chat toggle messages rerouted from `AsyncChatEvent`
-- Fired before the final clan chat broadcast
-- Cancellable to prevent clan chat delivery
-- Always fired on the main server thread, even when the original message came from async chat
+- a read-only Bukkit `ServicesManager` API (`LightweightClansApi`)
+- immutable snapshot DTOs in `io.github.maste.customclans.api.model`
+- lifecycle events under `io.github.maste.customclans.api.event`
+- a chat delivery event (`ClanChatMessageEvent`) for clan chat interception/cancellation
 
-The event exposes:
+### Fetching `LightweightClansApi` via Bukkit `ServicesManager`
+
+Lightweight Clans registers `io.github.maste.customclans.api.LightweightClansApi` with `ServicePriority.Normal` during plugin enable, and unregisters plugin-owned services on disable/reload.
+
+```java
+RegisteredServiceProvider<LightweightClansApi> registration = Bukkit.getServicesManager()
+        .getRegistration(LightweightClansApi.class);
+if (registration == null) {
+    return;
+}
+
+LightweightClansApi clansApi = registration.getProvider();
+```
+
+### `LightweightClansApi` method list
+
+- `Optional<ClanSnapshot> getClanById(long clanId)`
+- `Optional<ClanSnapshot> getClanByName(String name)`
+- `Optional<ClanSnapshot> getClanByNormalizedName(String normalizedName)`
+- `List<ClanSnapshot> getAllClans()`
+- `List<ClanMemberSnapshot> getMembersForClan(long clanId)`
+- `Optional<ClanBannerSnapshot> getBannerForClan(long clanId)`
+- `Optional<ClanSnapshot> getClanForPlayer(UUID playerUuid)`
+
+### Snapshot contents
+
+- `ClanSnapshot`
+  - `id`, `name`, `normalizedName`, `tag`, `tagColor`, `description`
+  - `presidentUuid`, `presidentName`, `memberCount`
+  - `List<ClanMemberSnapshot> members`
+  - `ClanBannerSnapshot banner` (nullable when banner not set)
+  - `createdAt`, `updatedAt`
+- `ClanMemberSnapshot`
+  - `playerUuid`, `lastKnownName`, `role`, `joinedAt`
+- `ClanBannerSnapshot`
+  - `baseMaterial`, `baseColor`, `List<BannerPatternSnapshot> patterns`
+- `BannerPatternSnapshot`
+  - `patternId`, `colorId`
+
+### Full lifecycle event list and meanings
+
+All lifecycle events live in `io.github.maste.customclans.api.event`:
+
+- `ClanCreatedEvent`: fired after a clan is created and persisted.
+- `ClanUpdatedEvent`: fired after mutable clan fields (for example name/tag/color/description) are changed and persisted.
+- `ClanDeletedEvent`: fired after a clan is fully deleted from plugin-managed storage.
+- `ClanMemberJoinedEvent`: fired after a player joins and membership changes are persisted.
+- `ClanMemberLeftEvent`: fired after a member leaves voluntarily and persistence completes.
+- `ClanMemberKickedEvent`: fired after a member is removed by another member and persistence completes.
+- `ClanPresidentTransferredEvent`: fired after presidency is transferred and persistence completes.
+- `ClanBannerUpdatedEvent`: fired after banner create/change/remove operations are persisted.
+
+### Threading guarantee
+
+- `ClanCreatedEvent`
+- `ClanUpdatedEvent`
+- `ClanDeletedEvent`
+- `ClanMemberJoinedEvent`
+- `ClanMemberLeftEvent`
+- `ClanMemberKickedEvent`
+- `ClanPresidentTransferredEvent`
+- `ClanBannerUpdatedEvent`
+- `ClanChatMessageEvent`
+
+All of the events above are fired on the **main server thread**. Lifecycle events are fired only **after persistence completes**, so listeners can immediately read durable post-change state through `LightweightClansApi`.
+
+### Clan chat integration event
+
+`ClanChatMessageEvent` is fired:
+
+- for `/clan chat <message>`
+- for clan-chat toggle messages rerouted from `AsyncChatEvent`
+- before final clan chat broadcast
+- as a cancellable event to stop clan chat delivery
+
+The event payload includes:
 
 - `Player sender`
 - `UUID senderUuid`
@@ -124,7 +198,7 @@ The event exposes:
 - `boolean toggleRouted`
 - immutable `List<UUID> recipientUuids`
 
-External plugins can listen to the event without sniffing normal public chat:
+Example listener:
 
 ```java
 @EventHandler
@@ -135,42 +209,19 @@ public void onClanChat(ClanChatMessageEvent event) {
 }
 ```
 
+### Banner export structure
 
+Banner state exported through snapshots uses:
 
-Lightweight Clans also registers a public service API at startup:
+- `ClanBannerSnapshot.baseMaterial` (for example `WHITE_BANNER`)
+- `ClanBannerSnapshot.baseColor` (for example `WHITE`)
+- ordered `ClanBannerSnapshot.patterns`, where each entry contains:
+  - `BannerPatternSnapshot.patternId` (Bukkit `PatternType` key/id)
+  - `BannerPatternSnapshot.colorId` (Bukkit `DyeColor` key/id)
 
-- Service interface: `io.github.maste.customclans.api.LightweightClansApi`
-- Bukkit registration: `ServicesManager#register(..., ServicePriority.Normal)`
-- Unregistered automatically on plugin disable/reload
+### Current scope note
 
-Example lookup from another plugin:
-
-```java
-RegisteredServiceProvider<LightweightClansApi> registration = Bukkit.getServicesManager()
-        .getRegistration(LightweightClansApi.class);
-if (registration == null) {
-    return;
-}
-
-LightweightClansApi clansApi = registration.getProvider();
-Optional<ClanSnapshot> maybeClan = clansApi.getClanForPlayer(player.getUniqueId());
-maybeClan.ifPresent(clan -> getLogger().info("Player clan: " + clan.name()));
-```
-
-The API returns immutable snapshot records instead of internal mutable service/repository objects.
-
-Lifecycle integration events are also exposed under `io.github.maste.customclans.api.event`:
-
-- `ClanCreatedEvent`
-- `ClanUpdatedEvent`
-- `ClanDeletedEvent`
-- `ClanMemberJoinedEvent`
-- `ClanMemberLeftEvent`
-- `ClanMemberKickedEvent`
-- `ClanPresidentTransferredEvent`
-- `ClanBannerUpdatedEvent`
-
-These lifecycle events are guaranteed to be fired on the main server thread only after persistence has completed, so listeners can safely read the durable post-change snapshots through `LightweightClansApi` immediately.
+Webhook or generic web-endpoint delivery is **not implemented in this step**. Integration is currently Bukkit service + Bukkit events only.
 
 For auto-discovery, the plugin jar also includes `META-INF/snarky-outputs.json` with the stable output id `lightweightclans:clan_chat` and the exact event class name. External integrations such as Snarky Server can parse that manifest to detect Lightweight Clans support without hardcoded plugin-specific logic.
 
