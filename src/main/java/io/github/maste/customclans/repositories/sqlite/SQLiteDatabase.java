@@ -91,14 +91,6 @@ public final class SQLiteDatabase implements AutoCloseable {
                     )
                     """);
 
-            statement.execute("""
-                    CREATE TABLE IF NOT EXISTS clan_banners (
-                        clan_id INTEGER PRIMARY KEY,
-                        material TEXT NOT NULL,
-                        patterns TEXT NOT NULL DEFAULT '',
-                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
-                    )
-                    """);
         }
     }
 
@@ -123,6 +115,7 @@ public final class SQLiteDatabase implements AutoCloseable {
                 statement.execute("ALTER TABLE clans ADD COLUMN banner_patterns_json TEXT NULL");
             }
         }
+        dropLegacyClanBannersTable(connection);
 
         try (PreparedStatement statement = connection.prepareStatement("""
                 UPDATE clans
@@ -154,6 +147,16 @@ public final class SQLiteDatabase implements AutoCloseable {
 
         try (Statement statement = connection.createStatement()) {
             statement.execute("DROP INDEX IF EXISTS idx_clans_name_unique");
+        }
+    }
+
+    private void dropLegacyClanBannersTable(Connection connection) throws SQLException {
+        if (!tableExists(connection, "clan_banners")) {
+            return;
+        }
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE clan_banners");
         }
     }
 

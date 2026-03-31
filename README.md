@@ -95,6 +95,7 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
 - SQLite is used by default through repository interfaces so the persistence layer can be swapped later.
 - Clan banner base color and pattern design are persisted in SQLite and restored for `/clan banner`.
 - Existing databases already using the current schema do not need a new migration for this polish pass.
+- Migration note (2026-03-31): startup now removes the legacy, unused `clan_banners` table if it exists; banner data is stored only in `clans.banner_material` and `clans.banner_patterns_json`.
 - On first boot after renaming from `CustomClans` to `LightweightClans`, the plugin migrates `config.yml`, `messages.yml`, and `clans.db` from `plugins/CustomClans` into `plugins/LightweightClans` and removes the old folder after a successful copy.
 
 ## Chat Formatting
