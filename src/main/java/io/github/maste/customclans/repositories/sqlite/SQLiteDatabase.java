@@ -88,6 +88,15 @@ public final class SQLiteDatabase implements AutoCloseable {
                         FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
                     )
                     """);
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS clan_banners (
+                        clan_id INTEGER PRIMARY KEY,
+                        material TEXT NOT NULL,
+                        patterns TEXT NOT NULL DEFAULT '',
+                        FOREIGN KEY (clan_id) REFERENCES clans(id) ON DELETE CASCADE
+                    )
+                    """);
         }
     }
 

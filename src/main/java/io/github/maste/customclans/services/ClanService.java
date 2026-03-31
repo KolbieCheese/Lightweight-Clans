@@ -2,6 +2,8 @@ package io.github.maste.customclans.services;
 
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.Clan;
+import io.github.maste.customclans.models.ClanBanner;
+import io.github.maste.customclans.models.ClanBannerPattern;
 import io.github.maste.customclans.models.ClanInfo;
 import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanMember;
@@ -18,10 +20,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BannerMeta;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.block.banner.PatternType;
+import org.bukkit.DyeColor;
 
 public final class ClanService {
 
@@ -30,7 +35,6 @@ public final class ClanService {
     private final ClanMemberRepository clanMemberRepository;
     private final ChatService chatService;
     private final NameModerationPolicy nameModerationPolicy;
-    private final Map<Long, ItemStack> clanBanners;
 
     public ClanService(
             PluginConfig pluginConfig,
@@ -43,7 +47,6 @@ public final class ClanService {
         this.clanMemberRepository = clanMemberRepository;
         this.chatService = chatService;
         this.nameModerationPolicy = new NameModerationPolicy(pluginConfig.nameModerationConfig());
-        this.clanBanners = new ConcurrentHashMap<>();
     }
 
     public CompletableFuture<Void> touchPlayerName(Player player) {
@@ -273,37 +276,81 @@ public final class ClanService {
     }
 
     public CompletableFuture<ActionResult<Void>> setClanBanner(Player player) {
-        ItemStack itemInHand = player.getInventory().getItemInMainHand();
-        if (itemInHand.getType() == Material.AIR || !itemInHand.getType().name().endsWith("_BANNER")) {
-            return CompletableFuture.completedFuture(ActionResult.failure("setbanner.invalid-item"));
-        }
-
-        return requirePresident(player.getUniqueId()).thenApply(snapshotResult -> {
+        return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
-                return ActionResult.failure(snapshotResult.messageKey(), snapshotResult.placeholders());
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        snapshotResult.messageKey(),
+                        snapshotResult.placeholders()
+                ));
             }
 
-            ItemStack storedBanner = itemInHand.clone();
-            storedBanner.setAmount(1);
-            clanBanners.put(snapshotResult.value().clanId(), storedBanner);
-            return ActionResult.success("setbanner.success", null);
+            ItemStack itemInHand = player.getInventory().getItemInMainHand();
+            if (itemInHand == null || itemInHand.getAmount() <= 0 || itemInHand.getType().isAir()) {
+                return CompletableFuture.completedFuture(ActionResult.failure("setbanner.invalid-item"));
+            }
+
+            Material material = itemInHand.getType();
+            String materialName = material.name();
+            if (!materialName.endsWith("_BANNER") || materialName.endsWith("WALL_BANNER")) {
+                return CompletableFuture.completedFuture(ActionResult.failure("setbanner.invalid-item"));
+            }
+            if (!(itemInHand.getItemMeta() instanceof BannerMeta bannerMeta)) {
+                return CompletableFuture.completedFuture(ActionResult.failure("setbanner.invalid-meta"));
+            }
+
+            List<ClanBannerPattern> patterns = bannerMeta.getPatterns().stream()
+                    .map(pattern -> new ClanBannerPattern(
+                            pattern.getColor().name(),
+                            pattern.getPattern().getIdentifier()
+                    ))
+                    .toList();
+
+            ClanBanner banner = new ClanBanner(materialName, patterns);
+            return clanRepository.upsertClanBanner(snapshotResult.value().clanId(), banner)
+                    .thenApply(unused -> ActionResult.success("setbanner.success", null));
         });
     }
 
     public CompletableFuture<ActionResult<ItemStack>> getClanBannerItem(Player player) {
-        return getOrLoadMemberSnapshot(player.getUniqueId()).thenApply(snapshotResult -> {
+        return getOrLoadMemberSnapshot(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
-                return ActionResult.failure(snapshotResult.messageKey(), snapshotResult.placeholders());
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        snapshotResult.messageKey(),
+                        snapshotResult.placeholders()
+                ));
             }
 
-            ItemStack storedBanner = clanBanners.get(snapshotResult.value().clanId());
-            if (storedBanner == null || storedBanner.getType() == Material.AIR) {
-                return ActionResult.failure("banner.not-set");
-            }
+            return clanRepository.findClanBanner(snapshotResult.value().clanId()).thenApply(optionalBanner -> {
+                if (optionalBanner.isEmpty()) {
+                    return ActionResult.failure("banner.not-set");
+                }
 
-            ItemStack bannerCopy = storedBanner.clone();
-            bannerCopy.setAmount(1);
-            return ActionResult.success("banner.success", bannerCopy);
+                ClanBanner clanBanner = optionalBanner.get();
+                Material material = Material.matchMaterial(clanBanner.material());
+                if (material == null || material.isAir()) {
+                    return ActionResult.failure("banner.not-set");
+                }
+
+                ItemStack bannerItem = new ItemStack(material, 1);
+                if (!(bannerItem.getItemMeta() instanceof BannerMeta bannerMeta)) {
+                    return ActionResult.failure("banner.not-set");
+                }
+
+                List<Pattern> patterns = clanBanner.patterns().stream()
+                        .map(pattern -> {
+                            DyeColor color = java.util.Arrays.stream(DyeColor.values())
+                                    .filter(candidate -> candidate.name().equals(pattern.color()))
+                                    .findFirst()
+                                    .orElse(null);
+                            PatternType patternType = PatternType.getByIdentifier(pattern.pattern());
+                            return color == null || patternType == null ? null : new Pattern(color, patternType);
+                        })
+                        .filter(java.util.Objects::nonNull)
+                        .toList();
+                bannerMeta.setPatterns(patterns);
+                bannerItem.setItemMeta(bannerMeta);
+                return ActionResult.success("banner.success", bannerItem);
+            });
         });
     }
 

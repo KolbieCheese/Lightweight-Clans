@@ -1,6 +1,8 @@
 package io.github.maste.customclans.repositories.sqlite;
 
 import io.github.maste.customclans.models.Clan;
+import io.github.maste.customclans.models.ClanBanner;
+import io.github.maste.customclans.models.ClanBannerPattern;
 import io.github.maste.customclans.models.ClanCreateResult;
 import io.github.maste.customclans.models.ClanListEntry;
 import io.github.maste.customclans.models.ClanRole;
@@ -14,6 +16,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public final class SQLiteClanRepository implements ClanRepository {
 
@@ -187,6 +190,49 @@ public final class SQLiteClanRepository implements ClanRepository {
     }
 
     @Override
+    public CompletableFuture<Void> upsertClanBanner(long clanId, ClanBanner banner) {
+        return database.runAsync(() -> {
+            try (var connection = database.openConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                         INSERT INTO clan_banners (clan_id, material, patterns)
+                         VALUES (?, ?, ?)
+                         ON CONFLICT(clan_id) DO UPDATE SET
+                             material = excluded.material,
+                             patterns = excluded.patterns
+                         """)) {
+                statement.setLong(1, clanId);
+                statement.setString(2, banner.material());
+                statement.setString(3, encodePatterns(banner.patterns()));
+                statement.executeUpdate();
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Optional<ClanBanner>> findClanBanner(long clanId) {
+        return database.supplyAsync(() -> {
+            try (var connection = database.openConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                         SELECT material, patterns
+                         FROM clan_banners
+                         WHERE clan_id = ?
+                         """)) {
+                statement.setLong(1, clanId);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (!resultSet.next()) {
+                        return Optional.empty();
+                    }
+
+                    return Optional.of(new ClanBanner(
+                            resultSet.getString("material"),
+                            decodePatterns(resultSet.getString("patterns"))
+                    ));
+                }
+            }
+        });
+    }
+
+    @Override
     public CompletableFuture<List<ClanListEntry>> listActiveClans() {
         return database.supplyAsync(() -> {
             try (var connection = database.openConnection();
@@ -287,5 +333,29 @@ public final class SQLiteClanRepository implements ClanRepository {
                 statement.executeUpdate();
             }
         });
+    }
+
+    private static String encodePatterns(List<ClanBannerPattern> patterns) {
+        return patterns.stream()
+                .map(pattern -> pattern.color() + ":" + pattern.pattern())
+                .collect(Collectors.joining(";"));
+    }
+
+    private static List<ClanBannerPattern> decodePatterns(String encodedPatterns) {
+        if (encodedPatterns == null || encodedPatterns.isBlank()) {
+            return List.of();
+        }
+
+        java.util.ArrayList<ClanBannerPattern> patterns = new java.util.ArrayList<>();
+        for (String entry : encodedPatterns.split(";")) {
+            int separatorIndex = entry.indexOf(':');
+            if (separatorIndex <= 0 || separatorIndex == entry.length() - 1) {
+                continue;
+            }
+            String color = entry.substring(0, separatorIndex);
+            String pattern = entry.substring(separatorIndex + 1);
+            patterns.add(new ClanBannerPattern(color, pattern));
+        }
+        return List.copyOf(patterns);
     }
 }

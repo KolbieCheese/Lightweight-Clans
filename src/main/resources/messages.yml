@@ -149,6 +149,7 @@ color:
 setbanner:
   success: "<prefix><green>Updated your clan banner.</green>"
   invalid-item: "<prefix><red>You must hold a banner in your main hand.</red>"
+  invalid-meta: "<prefix><red>That banner item is missing valid banner pattern data.</red>"
 
 banner:
   success: "<prefix><green>Added your clan banner to your inventory.</green>"
