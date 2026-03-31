@@ -117,6 +117,13 @@ Lightweight Clans ships an export/integration foundation so other plugins can co
 Lightweight Clans registers `io.github.maste.customclans.api.LightweightClansApi` with `ServicePriority.Normal` during plugin enable, and unregisters plugin-owned services on disable/reload.
 
 ```java
+import io.github.maste.customclans.api.LightweightClansApi;
+import io.github.maste.customclans.api.model.ClanBannerSnapshot;
+import io.github.maste.customclans.api.model.ClanMemberSnapshot;
+import io.github.maste.customclans.api.model.ClanSnapshot;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.RegisteredServiceProvider;
+
 RegisteredServiceProvider<LightweightClansApi> registration = Bukkit.getServicesManager()
         .getRegistration(LightweightClansApi.class);
 if (registration == null) {
@@ -125,6 +132,10 @@ if (registration == null) {
 
 LightweightClansApi clansApi = registration.getProvider();
 ```
+
+All DTO imports for integrations should come from `io.github.maste.customclans.api.model`.
+Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
+`ClanBannerSnapshot` have been removed.
 
 ### `LightweightClansApi` method list
 
