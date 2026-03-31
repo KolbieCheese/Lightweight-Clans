@@ -23,6 +23,8 @@ usage:
   description: "/clan description <text up to 500 chars>"
   tag: "/clan tag <new tag>"
   color: "/clan color <named color|#RRGGBB>"
+  setbanner: "/clan setbanner"
+  banner: "/clan banner"
   list: "/clan list"
   transfer: "/clan transfer <player>"
   kick: "/clan kick <player>"
@@ -68,6 +70,8 @@ help:
     - "<yellow>/clan description <text></yellow><gray> - Set your clan description (President only, max 500 chars).</gray>"
     - "<yellow>/clan tag <new tag></yellow><gray> - Change your clan tag (President only).</gray>"
     - "<yellow>/clan color <named color|#RRGGBB></yellow><gray> - Change your clan tag color using a named color or hex (President only).</gray>"
+    - "<yellow>/clan setbanner</yellow><gray> - Set your clan banner from the banner in your main hand (President only).</gray>"
+    - "<yellow>/clan banner</yellow><gray> - Claim your clan's current banner item.</gray>"
     - "<yellow>/clan list</yellow><gray> - View all active clans and member counts.</gray>"
     - "<yellow>/clan transfer <player></yellow><gray> - Transfer the presidency (President only).</gray>"
     - "<yellow>/clan kick <player></yellow><gray> - Remove a member from your clan (President only).</gray>"
@@ -141,6 +145,15 @@ tag:
 
 color:
   success: "<prefix><green>Updated your clan tag color to <white><color></white>.</green>"
+
+setbanner:
+  success: "<prefix><green>Updated your clan banner.</green>"
+  invalid-item: "<prefix><red>You must hold a banner in your main hand.</red>"
+
+banner:
+  success: "<prefix><green>Added your clan banner to your inventory.</green>"
+  not-set: "<prefix><red>Your clan does not have a banner set yet.</red>"
+  inventory-overflow: "<prefix><yellow>Your inventory was full, so leftover banner items were dropped at your feet.</yellow>"
 
 kick:
   success-self: "<prefix><yellow>You kicked <white><player></white> from the clan.</yellow>"

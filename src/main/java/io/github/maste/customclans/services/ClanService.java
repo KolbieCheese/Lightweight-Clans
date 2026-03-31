@@ -18,7 +18,10 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 
 public final class ClanService {
 
@@ -27,6 +30,7 @@ public final class ClanService {
     private final ClanMemberRepository clanMemberRepository;
     private final ChatService chatService;
     private final NameModerationPolicy nameModerationPolicy;
+    private final Map<Long, ItemStack> clanBanners;
 
     public ClanService(
             PluginConfig pluginConfig,
@@ -39,6 +43,7 @@ public final class ClanService {
         this.clanMemberRepository = clanMemberRepository;
         this.chatService = chatService;
         this.nameModerationPolicy = new NameModerationPolicy(pluginConfig.nameModerationConfig());
+        this.clanBanners = new ConcurrentHashMap<>();
     }
 
     public CompletableFuture<Void> touchPlayerName(Player player) {
@@ -265,6 +270,41 @@ public final class ClanService {
 
     public CompletableFuture<ActionResult<List<ClanListEntry>>> listClans() {
         return clanRepository.listActiveClans().thenApply(clans -> ActionResult.success("", clans));
+    }
+
+    public CompletableFuture<ActionResult<Void>> setClanBanner(Player player) {
+        ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        if (itemInHand.getType() == Material.AIR || !itemInHand.getType().name().endsWith("_BANNER")) {
+            return CompletableFuture.completedFuture(ActionResult.failure("setbanner.invalid-item"));
+        }
+
+        return requirePresident(player.getUniqueId()).thenApply(snapshotResult -> {
+            if (!snapshotResult.success()) {
+                return ActionResult.failure(snapshotResult.messageKey(), snapshotResult.placeholders());
+            }
+
+            ItemStack storedBanner = itemInHand.clone();
+            storedBanner.setAmount(1);
+            clanBanners.put(snapshotResult.value().clanId(), storedBanner);
+            return ActionResult.success("setbanner.success", null);
+        });
+    }
+
+    public CompletableFuture<ActionResult<ItemStack>> getClanBannerItem(Player player) {
+        return getOrLoadMemberSnapshot(player.getUniqueId()).thenApply(snapshotResult -> {
+            if (!snapshotResult.success()) {
+                return ActionResult.failure(snapshotResult.messageKey(), snapshotResult.placeholders());
+            }
+
+            ItemStack storedBanner = clanBanners.get(snapshotResult.value().clanId());
+            if (storedBanner == null || storedBanner.getType() == Material.AIR) {
+                return ActionResult.failure("banner.not-set");
+            }
+
+            ItemStack bannerCopy = storedBanner.clone();
+            bannerCopy.setAmount(1);
+            return ActionResult.success("banner.success", bannerCopy);
+        });
     }
 
     public List<String> suggestClanNames(String token) {

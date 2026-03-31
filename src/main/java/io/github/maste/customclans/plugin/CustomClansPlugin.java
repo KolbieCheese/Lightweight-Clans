@@ -3,6 +3,7 @@ package io.github.maste.customclans.plugin;
 import io.github.maste.customclans.commands.ClanCommand;
 import io.github.maste.customclans.commands.ClanSubcommand;
 import io.github.maste.customclans.commands.subcommands.AcceptSubcommand;
+import io.github.maste.customclans.commands.subcommands.BannerSubcommand;
 import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
 import io.github.maste.customclans.commands.subcommands.CreateSubcommand;
@@ -18,6 +19,7 @@ import io.github.maste.customclans.commands.subcommands.ListSubcommand;
 import io.github.maste.customclans.commands.subcommands.MembersSubcommand;
 import io.github.maste.customclans.commands.subcommands.RenameSubcommand;
 import io.github.maste.customclans.commands.subcommands.ReloadSubcommand;
+import io.github.maste.customclans.commands.subcommands.SetBannerSubcommand;
 import io.github.maste.customclans.commands.subcommands.TagSubcommand;
 import io.github.maste.customclans.commands.subcommands.TransferSubcommand;
 import io.github.maste.customclans.config.MessageManager;
@@ -116,6 +118,8 @@ public final class CustomClansPlugin extends JavaPlugin {
                 new RenameSubcommand(this, messageManager, clanService),
                 new DescriptionSubcommand(this, messageManager, clanService),
                 new TagSubcommand(this, messageManager, clanService),
+                new SetBannerSubcommand(this, messageManager, clanService),
+                new BannerSubcommand(this, messageManager, clanService),
                 new ColorSubcommand(this, messageManager, clanService, pluginConfig),
                 new KickSubcommand(this, messageManager, clanService, chatService),
                 new TransferSubcommand(this, messageManager, clanService, chatService),
