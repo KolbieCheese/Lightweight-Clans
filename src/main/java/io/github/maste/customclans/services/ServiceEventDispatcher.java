@@ -41,15 +41,11 @@ public final class ServiceEventDispatcher {
             return CompletableFuture.completedFuture(null);
         }
 
-        CompletableFuture<Void> future = new CompletableFuture<>();
-        server.getScheduler().runTask(plugin, () -> {
-            try {
-                server.getPluginManager().callEvent(event);
-                future.complete(null);
-            } catch (Throwable throwable) {
-                future.completeExceptionally(throwable);
-            }
-        });
-        return future;
+        try {
+            server.getScheduler().runTask(plugin, () -> server.getPluginManager().callEvent(event));
+        } catch (Throwable ignored) {
+            server.getPluginManager().callEvent(event);
+        }
+        return CompletableFuture.completedFuture(null);
     }
 }
