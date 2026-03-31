@@ -5,12 +5,18 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import io.github.maste.customclans.models.ClanCreateResult;
+import io.github.maste.customclans.models.ClanBannerData;
 import io.github.maste.customclans.models.ClanInvite;
 import io.github.maste.customclans.models.InviteAcceptResult;
 import io.github.maste.customclans.models.InviteCreateResult;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import org.bukkit.DyeColor;
+import org.bukkit.Material;
+import org.bukkit.block.banner.PatternType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -161,5 +167,39 @@ class SQLiteRepositoryIntegrationTest {
         assertEquals(InviteCreateResult.Status.CREATED, secondInvite.status());
         assertTrue(clanInviteRepository.findByClanIdAndInvitedPlayerUuid(firstClan.clan().id(), invited).join().isPresent());
         assertTrue(clanInviteRepository.findByClanIdAndInvitedPlayerUuid(secondClan.clan().id(), invited).join().isPresent());
+    }
+
+    @Test
+    void bannerPersistsAndReloadsWithPatternOrder() {
+        ClanCreateResult created = clanRepository.createClan(
+                UUID.randomUUID(),
+                "Alice",
+                "Azure Guard",
+                "AG",
+                "blue",
+                Instant.now()
+        ).join();
+
+        List<ClanBannerData.PatternSpec> expectedPatterns = List.of(
+                new ClanBannerData.PatternSpec(PatternType.STRIPE_TOP, DyeColor.BLACK),
+                new ClanBannerData.PatternSpec(PatternType.BORDER, DyeColor.WHITE)
+        );
+        String patternsJson = "[" +
+                "{\"pattern\":\"STRIPE_TOP\",\"color\":\"BLACK\"}," +
+                "{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}" +
+                "]";
+
+        clanRepository.updateClanBanner(created.clan().id(), Material.BLUE_BANNER.name(), patternsJson).join();
+
+        Optional<ClanBannerData> banner = clanRepository.findClanBanner(created.clan().id()).join();
+        assertTrue(banner.isPresent());
+        assertEquals(Material.BLUE_BANNER, banner.orElseThrow().material());
+        assertEquals(expectedPatterns, banner.orElseThrow().patterns());
+
+        assertEquals(Material.BLUE_BANNER, clanRepository.findById(created.clan().id()).join().orElseThrow().bannerData().material());
+        assertEquals(
+                expectedPatterns,
+                clanRepository.findById(created.clan().id()).join().orElseThrow().bannerData().patterns()
+        );
     }
 }

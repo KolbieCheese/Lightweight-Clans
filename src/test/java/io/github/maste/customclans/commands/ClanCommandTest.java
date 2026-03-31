@@ -25,8 +25,10 @@ import io.github.maste.customclans.commands.subcommands.LeaveSubcommand;
 import io.github.maste.customclans.commands.subcommands.ListSubcommand;
 import io.github.maste.customclans.commands.subcommands.RenameSubcommand;
 import io.github.maste.customclans.commands.subcommands.ReloadSubcommand;
+import io.github.maste.customclans.commands.subcommands.SetBannerSubcommand;
 import io.github.maste.customclans.commands.subcommands.TagSubcommand;
 import io.github.maste.customclans.commands.subcommands.TransferSubcommand;
+import io.github.maste.customclans.commands.subcommands.BannerSubcommand;
 import io.github.maste.customclans.config.MessageManager;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.plugin.CustomClansPlugin;
@@ -228,6 +230,20 @@ class ClanCommandTest {
     @Test
     void transferRejectsExtraArguments() {
         new TransferSubcommand(plugin, messages, clanService, chatService).execute(sender, new String[]{"Bob", "extra"});
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void setBannerRejectsExtraArguments() {
+        new SetBannerSubcommand(plugin, messages, clanService).execute(sender, new String[]{"extra"});
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void bannerRejectsExtraArguments() {
+        new BannerSubcommand(plugin, messages, clanService).execute(sender, new String[]{"extra"});
 
         verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
     }

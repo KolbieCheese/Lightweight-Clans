@@ -13,9 +13,17 @@ import io.github.maste.customclans.models.ClanRole;
 import io.github.maste.customclans.services.InviteService;
 import io.github.maste.customclans.util.ActionResult;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.DyeColor;
+import org.bukkit.Material;
+import org.bukkit.block.banner.Pattern;
+import org.bukkit.block.banner.PatternType;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -396,6 +404,146 @@ class ClanServiceTest {
         assertTrue(createResult.success());
         assertTrue(renameResult.success());
         assertTrue(tagResult.success());
+    }
+
+    @Test
+    void presidentCanSetBannerWithValidBannerMeta() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        when(president.getInventory()).thenReturn(inventory);
+        ItemStack banner = mock(ItemStack.class);
+        BannerMeta bannerMeta = mock(BannerMeta.class);
+        when(inventory.getItemInMainHand()).thenReturn(banner);
+        when(banner.getAmount()).thenReturn(1);
+        when(banner.getType()).thenReturn(Material.RED_BANNER);
+        when(banner.getItemMeta()).thenReturn(bannerMeta);
+        when(bannerMeta.getPatterns()).thenReturn(List.of(
+                new Pattern(DyeColor.WHITE, PatternType.BORDER)
+        ));
+
+        ActionResult<Void> result = clanService.setClanBanner(president).join();
+
+        assertTrue(result.success());
+        assertEquals("banner.set-success", result.messageKey());
+    }
+
+    @Test
+    void nonPresidentDeniedForSetBanner() {
+        Player president = mockPlayer("Alice");
+        Player member = mockOnlinePlayer("Bob");
+        createClanWithMember(president, member, "Crimson Knights");
+
+        ActionResult<Void> result = clanService.setClanBanner(member).join();
+
+        assertFalse(result.success());
+        assertEquals("common.not-president", result.messageKey());
+    }
+
+    @Test
+    void nonMemberDeniedForSetBanner() {
+        Player stranger = mockPlayer("Stranger");
+
+        ActionResult<Void> result = clanService.setClanBanner(stranger).join();
+
+        assertFalse(result.success());
+        assertEquals("common.no-clan", result.messageKey());
+    }
+
+    @Test
+    void setBannerFailsWhenHandIsEmpty() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        when(president.getInventory()).thenReturn(inventory);
+        when(inventory.getItemInMainHand()).thenReturn(null);
+
+        ActionResult<Void> result = clanService.setClanBanner(president).join();
+
+        assertFalse(result.success());
+        assertEquals("banner.must-hold-banner", result.messageKey());
+    }
+
+    @Test
+    void setBannerFailsForNonBannerItem() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        when(president.getInventory()).thenReturn(inventory);
+        ItemStack item = mock(ItemStack.class);
+        when(inventory.getItemInMainHand()).thenReturn(item);
+        when(item.getAmount()).thenReturn(1);
+        when(item.getType()).thenReturn(Material.DIAMOND_SWORD);
+
+        ActionResult<Void> result = clanService.setClanBanner(president).join();
+
+        assertFalse(result.success());
+        assertEquals("banner.must-hold-banner", result.messageKey());
+    }
+
+    @Test
+    void memberCanRetrieveBanner() {
+        Player president = mockPlayer("Alice");
+        Player member = mockOnlinePlayer("Bob");
+        createClanWithMember(president, member, "Crimson Knights");
+
+        holder.clanRepository().updateClanBanner(
+                chatService.cachedSnapshot(president.getUniqueId()).orElseThrow().clanId(),
+                Material.RED_BANNER.name(),
+                "[{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}]"
+        ).join();
+
+        ActionResult<ItemStack> result = clanService.getClanBannerItem(member).join();
+
+        assertTrue(result.success());
+        assertEquals("banner.receive-success", result.messageKey());
+        assertEquals(Material.RED_BANNER, result.value().getType());
+    }
+
+    @Test
+    void retrieveBannerFailsWhenNoBannerSet() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+
+        ActionResult<ItemStack> result = clanService.getClanBannerItem(president).join();
+
+        assertFalse(result.success());
+        assertEquals("banner.not-set", result.messageKey());
+    }
+
+    @Test
+    void nonMemberRetrieveBannerFails() {
+        Player stranger = mockPlayer("Stranger");
+
+        ActionResult<ItemStack> result = clanService.getClanBannerItem(stranger).join();
+
+        assertFalse(result.success());
+        assertEquals("common.no-clan", result.messageKey());
+    }
+
+    @Test
+    void reconstructedBannerPreservesMaterialAndOrderedPatternsAndColors() {
+        Player president = mockPlayer("Alice");
+        clanService.createClan(president, "Crimson Knights").join();
+        holder.clanRepository().updateClanBanner(
+                chatService.cachedSnapshot(president.getUniqueId()).orElseThrow().clanId(),
+                Material.BLUE_BANNER.name(),
+                "[" +
+                        "{\"pattern\":\"STRIPE_TOP\",\"color\":\"BLACK\"}," +
+                        "{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}" +
+                        "]"
+        ).join();
+
+        ActionResult<ItemStack> result = clanService.getClanBannerItem(president).join();
+
+        assertTrue(result.success());
+        assertEquals(Material.BLUE_BANNER, result.value().getType());
+        BannerMeta bannerMeta = (BannerMeta) result.value().getItemMeta();
+        assertEquals(List.of(
+                new Pattern(DyeColor.BLACK, PatternType.STRIPE_TOP),
+                new Pattern(DyeColor.WHITE, PatternType.BORDER)
+        ), bannerMeta.getPatterns());
     }
 
     private Player mockPlayer(String name) {
