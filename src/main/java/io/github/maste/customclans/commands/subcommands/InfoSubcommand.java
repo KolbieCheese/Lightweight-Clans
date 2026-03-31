@@ -5,8 +5,6 @@ import io.github.maste.customclans.config.MessageManager;
 import io.github.maste.customclans.config.PluginConfig;
 import io.github.maste.customclans.models.ClanInfo;
 import io.github.maste.customclans.services.ClanService;
-import io.github.maste.customclans.util.ActionResult;
-import java.util.concurrent.CompletableFuture;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -36,10 +34,7 @@ public final class InfoSubcommand extends AbstractClanSubcommand {
                 return;
             }
 
-            CompletableFuture<ActionResult<ClanInfo>> action = clanService.cachedSnapshot(player.getUniqueId())
-                    .map(snapshot -> clanService.getClanInfo(snapshot.clanName()))
-                    .orElseGet(() -> CompletableFuture.completedFuture(ActionResult.failure("lookup.no-clan-and-no-name")));
-            handleAction(sender, action, result -> sendInfo(sender, result.value()));
+            handleAction(sender, clanService.getClanInfo(player), result -> sendInfo(sender, result.value()));
             return;
         }
 

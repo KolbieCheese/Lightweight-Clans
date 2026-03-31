@@ -89,16 +89,17 @@ public final class ClanService {
                 ));
             }
 
-            Clan clan = optionalClan.get();
-            return clanMemberRepository.findByClanId(clan.id()).thenApply(members -> {
-                String presidentName = members.stream()
-                        .filter(member -> member.role() == ClanRole.PRESIDENT)
-                        .map(ClanMember::lastKnownName)
-                        .findFirst()
-                        .orElse("Unknown");
+            return buildClanInfo(optionalClan.get().id());
+        });
+    }
 
-                return ActionResult.success("", new ClanInfo(clan, presidentName, members));
-            });
+    public CompletableFuture<ActionResult<ClanInfo>> getClanInfo(Player player) {
+        return getOrLoadMemberSnapshot(player.getUniqueId()).thenCompose(snapshotResult -> {
+            if (!snapshotResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure("lookup.no-clan-and-no-name"));
+            }
+
+            return buildClanInfo(snapshotResult.value().clanId());
         });
     }
 
@@ -426,6 +427,25 @@ public final class ClanService {
 
     public Optional<PlayerClanSnapshot> cachedSnapshot(UUID playerUuid) {
         return chatService.cachedSnapshot(playerUuid);
+    }
+
+    private CompletableFuture<ActionResult<ClanInfo>> buildClanInfo(long clanId) {
+        return clanRepository.findById(clanId).thenCompose(optionalClan -> {
+            if (optionalClan.isEmpty()) {
+                return CompletableFuture.completedFuture(ActionResult.failure("lookup.not-found"));
+            }
+
+            Clan clan = optionalClan.get();
+            return clanMemberRepository.findByClanId(clan.id()).thenApply(members -> {
+                String presidentName = members.stream()
+                        .filter(member -> member.role() == ClanRole.PRESIDENT)
+                        .map(ClanMember::lastKnownName)
+                        .findFirst()
+                        .orElse("Unknown");
+
+                return ActionResult.success("", new ClanInfo(clan, presidentName, members));
+            });
+        });
     }
 
     private CompletableFuture<ActionResult<PlayerClanSnapshot>> getOrLoadMemberSnapshot(UUID playerUuid) {

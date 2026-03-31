@@ -128,6 +128,20 @@ class ClanCommandTest {
     }
 
     @Test
+    void infoWithoutNameRejectsNonPlayerSender() {
+        new InfoSubcommand(plugin, messages, clanService, pluginConfig).execute(sender, new String[0]);
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
+    void membersWithoutNameRejectsNonPlayerSender() {
+        new MembersSubcommand(plugin, messages, clanService).execute(sender, new String[0]);
+
+        verify(messages).send(eq(sender), eq("errors.usage"), any(TagResolver.class));
+    }
+
+    @Test
     void infoTabCompletionSuggestsNextClanWordForMultiWordNames() {
         when(clanService.suggestClanNameWords(any(String[].class))).thenReturn(List.of("Guard"));
 
@@ -145,6 +159,28 @@ class ClanCommandTest {
                 .tabComplete(sender, new String[]{"Azure", ""});
 
         org.junit.jupiter.api.Assertions.assertEquals(List.of("Guard"), suggestions);
+    }
+
+    @Test
+    void infoWithoutNameUsesPlayerClanLookup() {
+        Player player = mock(Player.class);
+        when(clanService.getClanInfo(player))
+                .thenReturn(CompletableFuture.completedFuture(ActionResult.failure("lookup.no-clan-and-no-name")));
+
+        new InfoSubcommand(plugin, messages, clanService, pluginConfig).execute(player, new String[0]);
+
+        verify(clanService).getClanInfo(player);
+    }
+
+    @Test
+    void membersWithoutNameUsesPlayerClanLookup() {
+        Player player = mock(Player.class);
+        when(clanService.getClanInfo(player))
+                .thenReturn(CompletableFuture.completedFuture(ActionResult.failure("lookup.no-clan-and-no-name")));
+
+        new MembersSubcommand(plugin, messages, clanService).execute(player, new String[0]);
+
+        verify(clanService).getClanInfo(player);
     }
 
     @Test
