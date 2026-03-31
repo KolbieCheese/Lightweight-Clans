@@ -141,13 +141,25 @@ Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
 
 ### `LightweightClansApi` method list
 
+`LightweightClansApi` includes synchronous and asynchronous read methods:
+
+- Synchronous methods (`getClanById`, `getClanByName`, etc.) are convenience wrappers and may block the caller while reading from the database.
+- Async methods (`...Async`) return `CompletableFuture` and are preferred for integrations that must avoid blocking.
+
 - `Optional<ClanSnapshot> getClanById(long clanId)`
+- `CompletableFuture<Optional<ClanSnapshot>> getClanByIdAsync(long clanId)`
 - `Optional<ClanSnapshot> getClanByName(String name)`
+- `CompletableFuture<Optional<ClanSnapshot>> getClanByNameAsync(String name)`
 - `Optional<ClanSnapshot> getClanByNormalizedName(String normalizedName)`
+- `CompletableFuture<Optional<ClanSnapshot>> getClanByNormalizedNameAsync(String normalizedName)`
 - `List<ClanSnapshot> getAllClans()`
+- `CompletableFuture<List<ClanSnapshot>> getAllClansAsync()`
 - `List<ClanMemberSnapshot> getMembersForClan(long clanId)`
+- `CompletableFuture<List<ClanMemberSnapshot>> getMembersForClanAsync(long clanId)`
 - `Optional<ClanBannerSnapshot> getBannerForClan(long clanId)`
+- `CompletableFuture<Optional<ClanBannerSnapshot>> getBannerForClanAsync(long clanId)`
 - `Optional<ClanSnapshot> getClanForPlayer(UUID playerUuid)`
+- `CompletableFuture<Optional<ClanSnapshot>> getClanForPlayerAsync(UUID playerUuid)`
 
 ### Snapshot contents
 
