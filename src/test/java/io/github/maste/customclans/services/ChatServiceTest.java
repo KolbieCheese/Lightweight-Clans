@@ -142,6 +142,24 @@ class ChatServiceTest {
     }
 
     @Test
+    void cancellingIntegrationEventCanStillRelayWhenConfigured() {
+        ChatServiceHarness harness = createHarness(true, true);
+        harness.stubClanMembership();
+        doAnswer(invocation -> {
+            ClanChatMessageEvent event = (ClanChatMessageEvent) invocation.getArgument(0);
+            event.setCancelled(true);
+            return null;
+        }).when(harness.pluginManager).callEvent(any(ClanChatMessageEvent.class));
+
+        ActionResult<Void> result = harness.chatService.sendClanChat(harness.sender, "cancel but relay").join();
+
+        assertTrue(result.success());
+        verify(harness.sender, never()).sendMessage(any(Component.class));
+        verify(harness.recipient, never()).sendMessage(any(Component.class));
+        assertEquals(List.of("cancel but relay"), harness.relay.messages);
+    }
+
+    @Test
     void asyncOriginClanChatIsRescheduledBeforeEventAndBroadcast() {
         ChatServiceHarness harness = createHarness(false);
         harness.stubClanMembership();
@@ -201,6 +219,10 @@ class ChatServiceTest {
     }
 
     private ChatServiceHarness createHarness(boolean primaryThread) {
+        return createHarness(primaryThread, false);
+    }
+
+    private ChatServiceHarness createHarness(boolean primaryThread, boolean relayForwardWhenCancelled) {
         JavaPlugin plugin = mock(JavaPlugin.class);
         Server server = mock(Server.class);
         BukkitScheduler scheduler = mock(BukkitScheduler.class);
@@ -226,7 +248,7 @@ class ChatServiceTest {
 
         ChatService chatService = new ChatService(
                 plugin,
-                createPluginConfig(true, true),
+                createPluginConfig(true, true, relayForwardWhenCancelled),
                 clanMemberRepository,
                 relay,
                 MiniMessage.miniMessage()
@@ -244,6 +266,14 @@ class ChatServiceTest {
     }
 
     private PluginConfig createPluginConfig(boolean clanChatEnabled, boolean clanChatToggleEnabled) {
+        return createPluginConfig(clanChatEnabled, clanChatToggleEnabled, false);
+    }
+
+    private PluginConfig createPluginConfig(
+            boolean clanChatEnabled,
+            boolean clanChatToggleEnabled,
+            boolean relayForwardWhenCancelled
+    ) {
         JavaPlugin plugin = mock(JavaPlugin.class);
         YamlConfiguration yaml = new YamlConfiguration();
         yaml.set("max-clan-name-length", 24);
@@ -256,6 +286,7 @@ class ChatServiceTest {
         yaml.set("clan-chat-enabled", clanChatEnabled);
         yaml.set("clan-chat-toggle-enabled", clanChatToggleEnabled);
         yaml.set("discordsrv-clan-chat-relay.enabled", false);
+        yaml.set("discordsrv-clan-chat-relay.forward-when-cancelled", relayForwardWhenCancelled);
         yaml.set("discordsrv-clan-chat-relay.channel", "global");
         yaml.set("discordsrv-clan-chat-relay.format", "[{clan}] {user}: {message}");
         when(plugin.getConfig()).thenReturn(yaml);

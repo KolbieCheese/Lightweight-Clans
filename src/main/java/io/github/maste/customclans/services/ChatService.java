@@ -278,9 +278,19 @@ public final class ChatService {
             if (pluginConfig.chatDebugLoggingEnabled()) {
                 plugin.getLogger().log(
                         Level.INFO,
-                        "ClanChatMessageEvent cancelled before relay; sender={0}, clan={1}, tag={2}, toggleRouted={3}",
-                        new Object[]{sender.getName(), snapshot.clanName(), snapshot.tag(), toggleRouted}
+                        "ClanChatMessageEvent cancelled; in-game broadcast skipped. sender={0}, clan={1}, tag={2}, "
+                                + "toggleRouted={3}, relayForwarded={4}",
+                        new Object[]{
+                                sender.getName(),
+                                snapshot.clanName(),
+                                snapshot.tag(),
+                                toggleRouted,
+                                pluginConfig.discordSrvClanChatRelayForwardWhenCancelled()
+                        }
                 );
+            }
+            if (pluginConfig.discordSrvClanChatRelayForwardWhenCancelled()) {
+                clanChatRelay.relay(sender, snapshot, rawMessage);
             }
             return;
         }

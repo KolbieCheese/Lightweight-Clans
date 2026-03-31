@@ -47,6 +47,7 @@ public final class PluginConfig {
     private final boolean clanChatToggleEnabled;
     private final boolean chatDebugLoggingEnabled;
     private final boolean discordSrvClanChatRelayEnabled;
+    private final boolean discordSrvClanChatRelayForwardWhenCancelled;
     private final String discordSrvClanChatChannel;
     private final String discordSrvClanChatFormat;
     private final NameModerationConfig nameModerationConfig;
@@ -64,6 +65,7 @@ public final class PluginConfig {
             boolean clanChatToggleEnabled,
             boolean chatDebugLoggingEnabled,
             boolean discordSrvClanChatRelayEnabled,
+            boolean discordSrvClanChatRelayForwardWhenCancelled,
             String discordSrvClanChatChannel,
             String discordSrvClanChatFormat,
             NameModerationConfig nameModerationConfig
@@ -80,6 +82,7 @@ public final class PluginConfig {
         this.clanChatToggleEnabled = clanChatToggleEnabled;
         this.chatDebugLoggingEnabled = chatDebugLoggingEnabled;
         this.discordSrvClanChatRelayEnabled = discordSrvClanChatRelayEnabled;
+        this.discordSrvClanChatRelayForwardWhenCancelled = discordSrvClanChatRelayForwardWhenCancelled;
         this.discordSrvClanChatChannel = Objects.requireNonNullElse(discordSrvClanChatChannel, "global");
         this.discordSrvClanChatFormat = Objects.requireNonNullElse(discordSrvClanChatFormat, "[{clan}] {user}: {message}");
         this.nameModerationConfig = nameModerationConfig;
@@ -127,6 +130,7 @@ public final class PluginConfig {
                 config.getBoolean("clan-chat-toggle-enabled", true),
                 config.getBoolean("chat-debug-logging-enabled", false),
                 config.getBoolean("discordsrv-clan-chat-relay.enabled", false),
+                config.getBoolean("discordsrv-clan-chat-relay.forward-when-cancelled", false),
                 config.getString("discordsrv-clan-chat-relay.channel", "global"),
                 config.getString(
                         "discordsrv-clan-chat-relay.format",
@@ -182,6 +186,10 @@ public final class PluginConfig {
 
     public boolean discordSrvClanChatRelayEnabled() {
         return discordSrvClanChatRelayEnabled;
+    }
+
+    public boolean discordSrvClanChatRelayForwardWhenCancelled() {
+        return discordSrvClanChatRelayForwardWhenCancelled;
     }
 
     public String discordSrvClanChatChannel() {
