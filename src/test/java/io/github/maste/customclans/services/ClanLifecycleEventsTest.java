@@ -67,7 +67,6 @@ class ClanLifecycleEventsTest {
     private SQLiteDatabaseHolder holder;
     private ClanService clanService;
     private InviteService inviteService;
-    private LightweightClansApiImpl api;
 
     @BeforeEach
     void setUp() throws Exception {
@@ -97,7 +96,6 @@ class ClanLifecycleEventsTest {
                 holder.inviteRepository,
                 chatService
         );
-        api = new LightweightClansApiImpl(holder.clanRepository, holder.memberRepository);
     }
 
     @AfterEach
@@ -248,9 +246,11 @@ class ClanLifecycleEventsTest {
 
     private final class SQLiteDatabaseHolder {
         private final SQLiteDatabase database;
+        private final SQLiteDatabase verificationDatabase;
         private final SQLiteClanRepository clanRepository;
         private final SQLiteClanMemberRepository memberRepository;
         private final SQLiteClanInviteRepository inviteRepository;
+        private final LightweightClansApiImpl verificationApi;
         private final PluginConfig pluginConfig;
 
         private final JavaPlugin plugin;
@@ -265,11 +265,18 @@ class ClanLifecycleEventsTest {
         private boolean verifyPersistenceOnEvent;
 
         private SQLiteDatabaseHolder(Path root) throws Exception {
-            this.database = new SQLiteDatabase(root.resolve("events.db"), java.util.logging.Logger.getLogger("test"));
+            Path databasePath = root.resolve("events.db");
+            this.database = new SQLiteDatabase(databasePath, java.util.logging.Logger.getLogger("test"));
             this.database.initialize();
             this.clanRepository = new SQLiteClanRepository(database);
             this.memberRepository = new SQLiteClanMemberRepository(database);
             this.inviteRepository = new SQLiteClanInviteRepository(database);
+            this.verificationDatabase = new SQLiteDatabase(databasePath, java.util.logging.Logger.getLogger("test"));
+            this.verificationDatabase.initialize();
+            this.verificationApi = new LightweightClansApiImpl(
+                    new SQLiteClanRepository(verificationDatabase),
+                    new SQLiteClanMemberRepository(verificationDatabase)
+            );
 
             this.plugin = mock(JavaPlugin.class);
             this.server = mock(Server.class);
@@ -311,13 +318,13 @@ class ClanLifecycleEventsTest {
 
         private void verifyPersistedStateAtEventTime(Event event) {
             if (event instanceof ClanCreatedEvent createdEvent) {
-                assertTrue(api.getClanById(createdEvent.getClan().id()).isPresent());
+                assertTrue(verificationApi.getClanById(createdEvent.getClan().id()).isPresent());
                 persistenceVerifiedEvents.add(ClanCreatedEvent.class);
                 return;
             }
 
             if (event instanceof ClanDeletedEvent deletedEvent) {
-                assertTrue(api.getClanById(deletedEvent.getDeletedClan().id()).isEmpty());
+                assertTrue(verificationApi.getClanById(deletedEvent.getDeletedClan().id()).isEmpty());
                 persistenceVerifiedEvents.add(ClanDeletedEvent.class);
                 return;
             }
@@ -359,7 +366,7 @@ class ClanLifecycleEventsTest {
         }
 
         private void assertPersistedAfterSnapshot(ClanSnapshot after) {
-            ClanSnapshot persisted = api.getClanById(after.id()).orElseThrow();
+            ClanSnapshot persisted = verificationApi.getClanById(after.id()).orElseThrow();
             assertEquals(after.id(), persisted.id());
             assertEquals(after.name(), persisted.name());
             assertEquals(after.memberCount(), persisted.memberCount());
@@ -368,6 +375,7 @@ class ClanLifecycleEventsTest {
 
         private void close() {
             database.close();
+            verificationDatabase.close();
         }
     }
 }

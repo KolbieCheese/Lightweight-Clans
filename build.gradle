@@ -78,6 +78,11 @@ tasks.test {
     timeout = java.time.Duration.ofMinutes(8)
     maxParallelForks = 1
     failFast = true
+    testLogging {
+        events 'started', 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+        showStandardStreams = true
+    }
 }
 
 tasks.jar {
