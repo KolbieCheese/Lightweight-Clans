@@ -20,6 +20,7 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
     private static final String DISCORDSRV_PLUGIN_NAME = "DiscordSRV";
 
     private final JavaPlugin plugin;
+    private final boolean chatDebugLoggingEnabled;
     private final String gameChannelName;
     private final String relayFormat;
     private volatile boolean missingPluginLogged;
@@ -27,6 +28,7 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
 
     public DiscordSrvClanChatRelay(JavaPlugin plugin, PluginConfig pluginConfig) {
         this.plugin = plugin;
+        this.chatDebugLoggingEnabled = pluginConfig.chatDebugLoggingEnabled();
         this.gameChannelName = pluginConfig.discordSrvClanChatChannel();
         this.relayFormat = pluginConfig.discordSrvClanChatFormat();
     }
@@ -39,6 +41,7 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
                 missingPluginLogged = true;
                 plugin.getLogger().info("DiscordSRV relay enabled, but DiscordSRV is not installed/enabled. Clan chat relay skipped.");
             }
+            debugFailure(sender, snapshot, "discordsrv-unavailable");
             return;
         }
 
@@ -46,6 +49,13 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
 
         try {
             if (invokeProcessChatMessage(discordSrvPlugin, sender, message, gameChannelName)) {
+                if (chatDebugLoggingEnabled) {
+                    plugin.getLogger().log(
+                            Level.INFO,
+                            "DiscordSRV relay succeeded; sender={0}, clan={1}, channel={2}",
+                            new Object[]{sender.getName(), snapshot.tag(), gameChannelName}
+                    );
+                }
                 return;
             }
 
@@ -53,9 +63,22 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
                 unsupportedApiLogged = true;
                 plugin.getLogger().warning("DiscordSRV found, but no supported processChatMessage signature was detected. Clan relay disabled.");
             }
+            debugFailure(sender, snapshot, "unsupported-process-chat-signature");
         } catch (ReflectiveOperationException reflectiveException) {
+            debugFailure(sender, snapshot, "exception:" + reflectiveException.getClass().getSimpleName());
             plugin.getLogger().log(Level.WARNING, "Failed to relay clan chat message to DiscordSRV", reflectiveException);
         }
+    }
+
+    private void debugFailure(Player sender, PlayerClanSnapshot snapshot, String reason) {
+        if (!chatDebugLoggingEnabled) {
+            return;
+        }
+        plugin.getLogger().log(
+                Level.INFO,
+                "DiscordSRV relay failed; sender={0}, clan={1}, channel={2}, reason={3}",
+                new Object[]{sender.getName(), snapshot.tag(), gameChannelName, reason}
+        );
     }
 
     private String formatMessage(String clanTag, String userName, String message) {

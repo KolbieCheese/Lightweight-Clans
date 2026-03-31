@@ -24,7 +24,15 @@ public final class AsyncChatListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onAsyncChat(AsyncChatEvent event) {
-        if (chatService.shouldRouteToClanChat(event.getPlayer())) {
+        boolean toggleRouted = chatService.shouldRouteToClanChat(event.getPlayer());
+        if (chatService.chatDebugLoggingEnabled()) {
+            plugin.getLogger().log(
+                    Level.INFO,
+                    "AsyncChatListener intercepted chat; sender={0}, toggleRoutedPath={1}",
+                    new Object[]{event.getPlayer().getName(), toggleRouted}
+            );
+        }
+        if (toggleRouted) {
             event.setCancelled(true);
             chatService.sendToggleRoutedClanChat(event.getPlayer(), event.message()).whenComplete((result, throwable) ->
                     SchedulerUtil.runSync(plugin, () -> {

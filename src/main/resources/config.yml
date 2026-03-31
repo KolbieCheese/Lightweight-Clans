@@ -8,6 +8,7 @@ public-chat-format: "<tag_prefix><white><player_name></white><gray>: </gray><mes
 clan-chat-format: "<dark_gray>[Clan]</dark_gray> <tag_prefix><white><player_name></white><gray>: </gray><message>"
 clan-chat-enabled: true
 clan-chat-toggle-enabled: true
+chat-debug-logging-enabled: false
 
 name-moderation:
   enabled: true

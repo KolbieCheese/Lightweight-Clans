@@ -45,6 +45,7 @@ public final class PluginConfig {
     private final String clanChatFormat;
     private final boolean clanChatEnabled;
     private final boolean clanChatToggleEnabled;
+    private final boolean chatDebugLoggingEnabled;
     private final boolean discordSrvClanChatRelayEnabled;
     private final String discordSrvClanChatChannel;
     private final String discordSrvClanChatFormat;
@@ -61,6 +62,7 @@ public final class PluginConfig {
             String clanChatFormat,
             boolean clanChatEnabled,
             boolean clanChatToggleEnabled,
+            boolean chatDebugLoggingEnabled,
             boolean discordSrvClanChatRelayEnabled,
             String discordSrvClanChatChannel,
             String discordSrvClanChatFormat,
@@ -76,6 +78,7 @@ public final class PluginConfig {
         this.clanChatFormat = clanChatFormat;
         this.clanChatEnabled = clanChatEnabled;
         this.clanChatToggleEnabled = clanChatToggleEnabled;
+        this.chatDebugLoggingEnabled = chatDebugLoggingEnabled;
         this.discordSrvClanChatRelayEnabled = discordSrvClanChatRelayEnabled;
         this.discordSrvClanChatChannel = Objects.requireNonNullElse(discordSrvClanChatChannel, "global");
         this.discordSrvClanChatFormat = Objects.requireNonNullElse(discordSrvClanChatFormat, "[{clan}] {user}: {message}");
@@ -122,6 +125,7 @@ public final class PluginConfig {
                 clanChatFormat,
                 config.getBoolean("clan-chat-enabled", true),
                 config.getBoolean("clan-chat-toggle-enabled", true),
+                config.getBoolean("chat-debug-logging-enabled", false),
                 config.getBoolean("discordsrv-clan-chat-relay.enabled", false),
                 config.getString("discordsrv-clan-chat-relay.channel", "global"),
                 config.getString(
@@ -170,6 +174,10 @@ public final class PluginConfig {
 
     public boolean clanChatToggleEnabled() {
         return clanChatToggleEnabled;
+    }
+
+    public boolean chatDebugLoggingEnabled() {
+        return chatDebugLoggingEnabled;
     }
 
     public boolean discordSrvClanChatRelayEnabled() {

@@ -18,6 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.logging.Level;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -173,6 +174,10 @@ public final class ChatService {
         return true;
     }
 
+    public boolean chatDebugLoggingEnabled() {
+        return pluginConfig.chatDebugLoggingEnabled();
+    }
+
     public Component renderPublicChat(Player player, Component sourceDisplayName, Component message) {
         PlayerClanSnapshot snapshot = snapshots.get(player.getUniqueId());
         return MiniMessageUtil.renderChatLine(
@@ -270,6 +275,13 @@ public final class ChatService {
         );
         plugin.getServer().getPluginManager().callEvent(event);
         if (event.isCancelled()) {
+            if (pluginConfig.chatDebugLoggingEnabled()) {
+                plugin.getLogger().log(
+                        Level.INFO,
+                        "ClanChatMessageEvent cancelled before relay; sender={0}, clan={1}, tag={2}, toggleRouted={3}",
+                        new Object[]{sender.getName(), snapshot.clanName(), snapshot.tag(), toggleRouted}
+                );
+            }
             return;
         }
 
