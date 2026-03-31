@@ -252,13 +252,36 @@ public void onClanChat(ClanChatMessageEvent event) {
 
 ### Banner export structure
 
-Banner state exported through snapshots uses:
+Banner state exported through snapshots uses normalized lowercase IDs from `BannerSnapshotMapper`:
 
-- `ClanBannerSnapshot.baseMaterial` (for example `WHITE_BANNER`)
-- `ClanBannerSnapshot.baseColor` (for example `WHITE`)
+- `ClanBannerSnapshot.baseMaterial` is a lowercase namespaced material ID (for example `minecraft:white_banner`).
+- `ClanBannerSnapshot.baseColor` is a lowercase color ID (for example `white`).
 - ordered `ClanBannerSnapshot.patterns`, where each entry contains:
-  - `BannerPatternSnapshot.patternId` (Bukkit `PatternType` key/id)
-  - `BannerPatternSnapshot.colorId` (Bukkit `DyeColor` key/id)
+  - `BannerPatternSnapshot.patternId` as a lowercase namespaced ID when exported (for example `minecraft:stripe_downright`).
+  - `BannerPatternSnapshot.colorId` as a lowercase color ID (for example `light_blue`).
+
+Full normalized sample payload:
+
+```json
+{
+  "baseMaterial": "minecraft:white_banner",
+  "baseColor": "white",
+  "patterns": [
+    {
+      "patternId": "minecraft:rhombus",
+      "colorId": "black"
+    },
+    {
+      "patternId": "minecraft:stripe_center",
+      "colorId": "light_blue"
+    },
+    {
+      "patternId": "minecraft:border",
+      "colorId": "white"
+    }
+  ]
+}
+```
 
 ### Current scope note
 
