@@ -181,6 +181,13 @@ public final class ChatService {
 
     public Component renderPublicChat(Player player, Component sourceDisplayName, Component message) {
         PlayerClanSnapshot snapshot = snapshots.get(player.getUniqueId());
+        if (snapshot == null && pluginConfig.chatDebugLoggingEnabled()) {
+            plugin.getLogger().log(
+                    Level.INFO,
+                    "Rendering public chat without clan tag; sender={0}, reason=no-cached-snapshot",
+                    player.getName()
+            );
+        }
         return MiniMessageUtil.renderChatLine(
                 miniMessage,
                 pluginConfig.publicChatFormat(),

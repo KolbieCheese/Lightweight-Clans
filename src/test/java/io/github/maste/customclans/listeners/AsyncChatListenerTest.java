@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -84,6 +85,26 @@ class AsyncChatListenerTest {
         Component result = event.renderer().render(player, displayName, message, mock(Audience.class));
         assertEquals(rendered, result);
         verify(chatService).renderPublicChat(player, displayName, message);
+    }
+
+    @Test
+    void cancelledMessagesDoNotEnterClanOrPublicRenderingPaths() {
+        JavaPlugin plugin = mock(JavaPlugin.class);
+        ChatService chatService = mock(ChatService.class);
+        MessageManager messages = mock(MessageManager.class);
+        Player player = mock(Player.class);
+        Component message = Component.text("blocked");
+
+        AsyncChatListener listener = new AsyncChatListener(plugin, chatService, messages);
+        AsyncChatEvent event = createAsyncChatEvent(player, message);
+        event.setCancelled(true);
+
+        listener.onAsyncChat(event);
+
+        assertTrue(event.isCancelled());
+        verify(chatService, never()).shouldRouteToClanChat(any(Player.class));
+        verify(chatService, never()).sendToggleRoutedClanChat(any(Player.class), any(Component.class));
+        verify(chatService, never()).renderPublicChat(any(Player.class), any(Component.class), any(Component.class));
     }
 
     private AsyncChatEvent createAsyncChatEvent(Player player, Component message) {

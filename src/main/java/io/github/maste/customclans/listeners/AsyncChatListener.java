@@ -22,13 +22,24 @@ public final class AsyncChatListener implements Listener {
         this.messages = messages;
     }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onAsyncChat(AsyncChatEvent event) {
+        if (chatService.chatDebugLoggingEnabled()) {
+            plugin.getLogger().log(
+                    Level.INFO,
+                    "AsyncChatListener intercepted chat; sender={0}, cancelled={1}",
+                    new Object[]{event.getPlayer().getName(), event.isCancelled()}
+            );
+        }
+        if (event.isCancelled()) {
+            return;
+        }
+
         boolean toggleRouted = chatService.shouldRouteToClanChat(event.getPlayer());
         if (chatService.chatDebugLoggingEnabled()) {
             plugin.getLogger().log(
                     Level.INFO,
-                    "AsyncChatListener intercepted chat; sender={0}, toggleRoutedPath={1}",
+                    "AsyncChatListener continuing chat handling; sender={0}, toggleRoutedPath={1}",
                     new Object[]{event.getPlayer().getName(), toggleRouted}
             );
         }

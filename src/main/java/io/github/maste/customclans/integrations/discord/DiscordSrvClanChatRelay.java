@@ -35,6 +35,7 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
 
     @Override
     public void relay(Player sender, PlayerClanSnapshot snapshot, String rawMessage) {
+        debugAttempt(sender, snapshot, rawMessage);
         Plugin discordSrvPlugin = Bukkit.getPluginManager().getPlugin(DISCORDSRV_PLUGIN_NAME);
         if (discordSrvPlugin == null || !discordSrvPlugin.isEnabled()) {
             if (!missingPluginLogged) {
@@ -52,8 +53,8 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
                 if (chatDebugLoggingEnabled) {
                     plugin.getLogger().log(
                             Level.INFO,
-                            "DiscordSRV relay succeeded; sender={0}, clan={1}, channel={2}",
-                            new Object[]{sender.getName(), snapshot.tag(), gameChannelName}
+                            "DiscordSRV relay succeeded; sender={0}, clan={1}, channel={2}, senderIsOp={3}",
+                            new Object[]{sender.getName(), snapshot.tag(), gameChannelName, sender.isOp()}
                     );
                 }
                 return;
@@ -76,8 +77,19 @@ public final class DiscordSrvClanChatRelay implements ClanChatRelay {
         }
         plugin.getLogger().log(
                 Level.INFO,
-                "DiscordSRV relay failed; sender={0}, clan={1}, channel={2}, reason={3}",
-                new Object[]{sender.getName(), snapshot.tag(), gameChannelName, reason}
+                "DiscordSRV relay failed; sender={0}, clan={1}, channel={2}, senderIsOp={3}, reason={4}",
+                new Object[]{sender.getName(), snapshot.tag(), gameChannelName, sender.isOp(), reason}
+        );
+    }
+
+    private void debugAttempt(Player sender, PlayerClanSnapshot snapshot, String rawMessage) {
+        if (!chatDebugLoggingEnabled) {
+            return;
+        }
+        plugin.getLogger().log(
+                Level.INFO,
+                "DiscordSRV relay attempt; sender={0}, clan={1}, channel={2}, senderIsOp={3}, messageLength={4}",
+                new Object[]{sender.getName(), snapshot.tag(), gameChannelName, sender.isOp(), rawMessage.length()}
         );
     }
 
