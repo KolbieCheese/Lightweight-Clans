@@ -29,6 +29,7 @@ public final class ClanSnapshotMapper {
         return new ClanSnapshot(
                 clan.id(),
                 clan.name(),
+                clan.slug(),
                 ValidationUtil.normalizeClanName(clan.name()),
                 clan.tag(),
                 clan.tagColor(),

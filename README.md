@@ -7,10 +7,10 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
 - Command-based clans with one enforced `PRESIDENT` and any number of `MEMBER`s up to the configured limit
 - Creator automatically becomes the clan President
 - Public clan lookup through `/clan info [clan name]` and `/clan members [clan name]`
-- Case-insensitive clan names for create, rename, invites, and lookup while preserving the chosen display name
+- Slug-backed clan lookup for create, rename, invites, and public lookup while preserving the chosen display name
 - Safe public chat tag rendering with Adventure Components and `AsyncChatEvent`
 - Safe clan tag colors using named Minecraft colors or `#RRGGBB`
-- Clan invites accepted or denied by clan name
+- Clan invites accepted or denied by clan display name or slug
 - Optional clan chat toggle for routing normal chat into clan chat
 - SQLite persistence with repository abstractions for a future storage swap
 - Asynchronous database access through a dedicated database executor
@@ -66,11 +66,13 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
 
 ## Clan Names And Invites
 
-- Clan names are unique regardless of capitalization.
-- Clan name lookups are case-insensitive.
+- Each clan keeps its original display name and also stores a canonical slug such as `crimson-knights`.
+- Similar name variations that normalize to the same slug are rejected on create and rename.
+- Clan lookups and invite accept/deny resolve either the clan display name or the slug.
+- Command tab completion suggests only the slug form.
 - The original display name is preserved for output and chat tags.
 - The default config allows clan names up to 30 characters while clan tags remain capped at 4 characters.
-- Invites are accepted or denied by clan name with `/clan accept <clan name>` and `/clan deny <clan name>`.
+- Invites are accepted or denied by clan display name or slug with `/clan accept <clan name>` and `/clan deny <clan name>`.
 - Duplicate active invites from the same clan to the same player are rejected.
 - Invited players must be online for this MVP.
 
@@ -98,10 +100,10 @@ Discord relay cancellation behavior is controlled by:
 
 - Default database: `plugins/LightweightClans/clans.db`
 - Tables and indexes are created automatically on startup.
-- Clan names are stored with a normalized form for case-insensitive uniqueness and lookup.
+- Clan names are stored with both a canonical `slug` and a legacy `normalized_name` token.
 - SQLite is used by default through repository interfaces so the persistence layer can be swapped later.
 - Clan banner base color and pattern design are persisted in SQLite and restored for `/clan banner`.
-- Existing databases already using the current schema do not need a new migration for this polish pass.
+- Existing databases are migrated in place by adding `clans.slug`, backfilling it from the display name, and suffixing collisions as `-2`, `-3`, and so on.
 - Migration note (2026-03-31): startup now removes the legacy, unused `clan_banners` table if it exists; banner data is stored only in `clans.banner_material` and `clans.banner_patterns_json`.
 - On first boot after renaming from `CustomClans` to `LightweightClans`, the plugin migrates `config.yml`, `messages.yml`, and `clans.db` from `plugins/CustomClans` into `plugins/LightweightClans` and removes the old folder after a successful copy.
 
@@ -155,8 +157,10 @@ Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
 
 - `Optional<ClanSnapshot> getClanById(long clanId)`
 - `CompletableFuture<Optional<ClanSnapshot>> getClanByIdAsync(long clanId)`
-- `Optional<ClanSnapshot> getClanByName(String name)`
-- `CompletableFuture<Optional<ClanSnapshot>> getClanByNameAsync(String name)`
+- `Optional<ClanSnapshot> getClanByName(String name)` (display name or slug)
+- `CompletableFuture<Optional<ClanSnapshot>> getClanByNameAsync(String name)` (display name or slug)
+- `Optional<ClanSnapshot> getClanBySlug(String slug)`
+- `CompletableFuture<Optional<ClanSnapshot>> getClanBySlugAsync(String slug)`
 - `Optional<ClanSnapshot> getClanByNormalizedName(String normalizedName)`
 - `CompletableFuture<Optional<ClanSnapshot>> getClanByNormalizedNameAsync(String normalizedName)`
 - `List<ClanSnapshot> getAllClans()`
@@ -171,7 +175,7 @@ Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
 ### Snapshot contents
 
 - `ClanSnapshot`
-  - `id`, `name`, `normalizedName`, `tag`, `tagColor`, `description`
+  - `id`, `name`, `slug`, `normalizedName`, `tag`, `tagColor`, `description`
   - `presidentUuid`, `presidentName`, `memberCount`
   - `List<ClanMemberSnapshot> members`
   - `ClanBannerSnapshot banner` (nullable when banner not set)

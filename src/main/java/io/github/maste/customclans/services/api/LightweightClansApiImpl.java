@@ -46,6 +46,16 @@ public final class LightweightClansApiImpl implements LightweightClansApi {
     }
 
     @Override
+    public Optional<ClanSnapshot> getClanBySlug(String slug) {
+        return clanRepository.findBySlug(slug).join().map(this::mapClanSnapshot);
+    }
+
+    @Override
+    public CompletableFuture<Optional<ClanSnapshot>> getClanBySlugAsync(String slug) {
+        return clanRepository.findBySlug(slug).thenCompose(this::mapClanSnapshotOptionalAsync);
+    }
+
+    @Override
     public Optional<ClanSnapshot> getClanByNormalizedName(String normalizedName) {
         return clanRepository.findByNormalizedName(normalizedName).join().map(this::mapClanSnapshot);
     }

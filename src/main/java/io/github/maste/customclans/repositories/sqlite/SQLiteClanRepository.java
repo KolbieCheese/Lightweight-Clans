@@ -11,6 +11,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.time.Instant;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -33,6 +34,7 @@ public final class SQLiteClanRepository implements ClanRepository {
             String tagColor,
             Instant createdAt
     ) {
+        String slug = ValidationUtil.toSlug(clanName);
         String normalizedName = ValidationUtil.normalizeClanName(clanName);
         return database.transactionAsync(connection -> {
             try (PreparedStatement membershipCheck = connection.prepareStatement(
@@ -47,9 +49,9 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             try (PreparedStatement nameCheck = connection.prepareStatement(
-                    "SELECT id FROM clans WHERE normalized_name = ?"
+                    "SELECT id FROM clans WHERE slug = ?"
             )) {
-                nameCheck.setString(1, normalizedName);
+                nameCheck.setString(1, slug);
                 try (ResultSet resultSet = nameCheck.executeQuery()) {
                     if (resultSet.next()) {
                         return new ClanCreateResult(ClanCreateResult.Status.NAME_TAKEN, null);
@@ -60,17 +62,18 @@ public final class SQLiteClanRepository implements ClanRepository {
             long clanId;
             long createdAtMillis = createdAt.toEpochMilli();
             try (PreparedStatement insertClan = connection.prepareStatement(
-                    "INSERT INTO clans (name, normalized_name, tag, tag_color, description, president_uuid, created_at, updated_at) "
-                            + "VALUES (?, ?, ?, ?, '', ?, ?, ?)",
+                    "INSERT INTO clans (name, slug, normalized_name, tag, tag_color, description, president_uuid, created_at, updated_at) "
+                            + "VALUES (?, ?, ?, ?, ?, '', ?, ?, ?)",
                     Statement.RETURN_GENERATED_KEYS
             )) {
                 insertClan.setString(1, clanName);
-                insertClan.setString(2, normalizedName);
-                insertClan.setString(3, tag);
-                insertClan.setString(4, tagColor);
-                insertClan.setString(5, presidentUuid.toString());
-                insertClan.setLong(6, createdAtMillis);
+                insertClan.setString(2, slug);
+                insertClan.setString(3, normalizedName);
+                insertClan.setString(4, tag);
+                insertClan.setString(5, tagColor);
+                insertClan.setString(6, presidentUuid.toString());
                 insertClan.setLong(7, createdAtMillis);
+                insertClan.setLong(8, createdAtMillis);
                 insertClan.executeUpdate();
 
                 try (ResultSet generatedKeys = insertClan.getGeneratedKeys()) {
@@ -94,7 +97,7 @@ public final class SQLiteClanRepository implements ClanRepository {
 
             return new ClanCreateResult(
                     ClanCreateResult.Status.CREATED,
-                    new Clan(clanId, clanName, tag, tagColor, "", null, presidentUuid, createdAt, createdAt)
+                    new Clan(clanId, clanName, slug, tag, tagColor, "", null, presidentUuid, createdAt, createdAt)
             );
         });
     }
@@ -114,40 +117,84 @@ public final class SQLiteClanRepository implements ClanRepository {
 
     @Override
     public CompletableFuture<Optional<Clan>> findByName(String name) {
-        String normalizedName = ValidationUtil.normalizeClanName(name);
+        String lookupName = name == null ? "" : name.trim();
+        if (lookupName.isEmpty()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+
+        String slug = ValidationUtil.toSlug(lookupName);
+        String normalizedName = ValidationUtil.normalizeClanName(lookupName);
         return database.supplyAsync(() -> {
-            try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clans WHERE normalized_name = ?")) {
-                statement.setString(1, normalizedName);
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    return resultSet.next() ? Optional.of(SQLiteMapper.mapClan(resultSet)) : Optional.empty();
+            try (var connection = database.openConnection()) {
+                if (!slug.isBlank()) {
+                    Optional<Clan> bySlug = findFirst(
+                            connection,
+                            "SELECT * FROM clans WHERE slug = ?",
+                            statement -> statement.setString(1, slug)
+                    );
+                    if (bySlug.isPresent()) {
+                        return bySlug;
+                    }
                 }
+
+                Optional<Clan> byDisplayName = findFirst(
+                        connection,
+                        "SELECT * FROM clans WHERE name = ? COLLATE NOCASE",
+                        statement -> statement.setString(1, lookupName)
+                );
+                if (byDisplayName.isPresent()) {
+                    return byDisplayName;
+                }
+
+                return findFirst(
+                        connection,
+                        "SELECT * FROM clans WHERE normalized_name = ?",
+                        statement -> statement.setString(1, normalizedName)
+                );
             }
         });
     }
 
+    @Override
+    public CompletableFuture<Optional<Clan>> findBySlug(String slug) {
+        String normalizedSlug = slug == null ? "" : slug.trim().toLowerCase(Locale.ROOT);
+        if (normalizedSlug.isEmpty()) {
+            return CompletableFuture.completedFuture(Optional.empty());
+        }
+
+        return database.supplyAsync(() -> {
+            try (var connection = database.openConnection()) {
+                return findFirst(
+                        connection,
+                        "SELECT * FROM clans WHERE slug = ?",
+                        statement -> statement.setString(1, normalizedSlug)
+                );
+            }
+        });
+    }
 
     @Override
     public CompletableFuture<Optional<Clan>> findByNormalizedName(String normalizedName) {
         return database.supplyAsync(() -> {
-            try (var connection = database.openConnection();
-                 PreparedStatement statement = connection.prepareStatement("SELECT * FROM clans WHERE normalized_name = ?")) {
-                statement.setString(1, normalizedName);
-                try (ResultSet resultSet = statement.executeQuery()) {
-                    return resultSet.next() ? Optional.of(SQLiteMapper.mapClan(resultSet)) : Optional.empty();
-                }
+            try (var connection = database.openConnection()) {
+                return findFirst(
+                        connection,
+                        "SELECT * FROM clans WHERE normalized_name = ?",
+                        statement -> statement.setString(1, normalizedName)
+                );
             }
         });
     }
 
     @Override
     public CompletableFuture<Boolean> renameClan(long clanId, String newName) {
+        String slug = ValidationUtil.toSlug(newName);
         String normalizedName = ValidationUtil.normalizeClanName(newName);
         return database.transactionAsync(connection -> {
             try (PreparedStatement nameCheck = connection.prepareStatement(
-                    "SELECT id FROM clans WHERE normalized_name = ? AND id <> ?"
+                    "SELECT id FROM clans WHERE slug = ? AND id <> ?"
             )) {
-                nameCheck.setString(1, normalizedName);
+                nameCheck.setString(1, slug);
                 nameCheck.setLong(2, clanId);
                 try (ResultSet resultSet = nameCheck.executeQuery()) {
                     if (resultSet.next()) {
@@ -157,12 +204,13 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
 
             try (PreparedStatement updateStatement = connection.prepareStatement(
-                    "UPDATE clans SET name = ?, normalized_name = ?, updated_at = ? WHERE id = ?"
+                    "UPDATE clans SET name = ?, slug = ?, normalized_name = ?, updated_at = ? WHERE id = ?"
             )) {
                 updateStatement.setString(1, newName);
-                updateStatement.setString(2, normalizedName);
-                updateStatement.setLong(3, Instant.now().toEpochMilli());
-                updateStatement.setLong(4, clanId);
+                updateStatement.setString(2, slug);
+                updateStatement.setString(3, normalizedName);
+                updateStatement.setLong(4, Instant.now().toEpochMilli());
+                updateStatement.setLong(5, clanId);
                 return updateStatement.executeUpdate() > 0;
             }
         });
@@ -312,6 +360,25 @@ public final class SQLiteClanRepository implements ClanRepository {
     }
 
     @Override
+    public CompletableFuture<List<String>> listClanSlugs() {
+        return database.supplyAsync(() -> {
+            try (var connection = database.openConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                         SELECT slug
+                         FROM clans
+                         ORDER BY LOWER(slug) ASC
+                         """);
+                 ResultSet resultSet = statement.executeQuery()) {
+                java.util.ArrayList<String> clanSlugs = new java.util.ArrayList<>();
+                while (resultSet.next()) {
+                    clanSlugs.add(resultSet.getString("slug"));
+                }
+                return List.copyOf(clanSlugs);
+            }
+        });
+    }
+
+    @Override
     public CompletableFuture<Boolean> transferLeadership(long clanId, UUID currentPresidentUuid, UUID newPresidentUuid) {
         return database.transactionAsync(connection -> {
             try (PreparedStatement clanCheck = connection.prepareStatement("SELECT president_uuid FROM clans WHERE id = ?")) {
@@ -381,6 +448,24 @@ public final class SQLiteClanRepository implements ClanRepository {
             }
             return null;
         });
+    }
+
+    private Optional<Clan> findFirst(
+            java.sql.Connection connection,
+            String sql,
+            StatementConfigurer configurer
+    ) throws java.sql.SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            configurer.configure(statement);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() ? Optional.of(SQLiteMapper.mapClan(resultSet)) : Optional.empty();
+            }
+        }
+    }
+
+    @FunctionalInterface
+    private interface StatementConfigurer {
+        void configure(PreparedStatement statement) throws java.sql.SQLException;
     }
 
 }

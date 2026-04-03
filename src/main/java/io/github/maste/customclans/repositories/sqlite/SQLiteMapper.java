@@ -33,6 +33,7 @@ final class SQLiteMapper {
         return new Clan(
                 resultSet.getLong("id"),
                 resultSet.getString("name"),
+                resultSet.getString("slug"),
                 resultSet.getString("tag"),
                 resultSet.getString("tag_color"),
                 resultSet.getString("description"),

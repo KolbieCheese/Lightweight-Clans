@@ -14,6 +14,9 @@ public final class ValidationUtil {
     private static final Pattern ALPHANUMERIC_PATTERN = Pattern.compile("[A-Za-z0-9]");
     private static final Pattern HEX_COLOR_PATTERN = Pattern.compile("^#([A-Fa-f0-9]{6})$");
     private static final Pattern MODERATION_TOKEN_SPLIT_PATTERN = Pattern.compile("[^A-Za-z0-9@$!]+");
+    private static final Pattern SLUG_WHITESPACE_PATTERN = Pattern.compile("\\s+");
+    private static final Pattern SLUG_INVALID_CHARACTER_PATTERN = Pattern.compile("[^a-z0-9-]");
+    private static final Pattern SLUG_REPEAT_HYPHEN_PATTERN = Pattern.compile("-{2,}");
 
     private ValidationUtil() {
     }
@@ -58,6 +61,33 @@ public final class ValidationUtil {
 
     public static String normalizeClanName(String clanName) {
         return clanName == null ? "" : clanName.trim().toLowerCase(Locale.ROOT);
+    }
+
+    public static String toSlug(String input) {
+        if (input == null) {
+            return "";
+        }
+
+        String slug = input.trim().toLowerCase(Locale.ROOT);
+        if (slug.isEmpty()) {
+            return "";
+        }
+
+        slug = SLUG_WHITESPACE_PATTERN.matcher(slug).replaceAll("-");
+        slug = SLUG_INVALID_CHARACTER_PATTERN.matcher(slug).replaceAll("");
+        slug = SLUG_REPEAT_HYPHEN_PATTERN.matcher(slug).replaceAll("-");
+
+        int start = 0;
+        while (start < slug.length() && slug.charAt(start) == '-') {
+            start++;
+        }
+
+        int end = slug.length();
+        while (end > start && slug.charAt(end - 1) == '-') {
+            end--;
+        }
+
+        return slug.substring(start, end);
     }
 
     public static String normalizeClanColor(String color) {

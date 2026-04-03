@@ -7,6 +7,7 @@ import java.util.UUID;
 public record Clan(
         long id,
         String name,
+        String slug,
         String tag,
         String tagColor,
         String description,
@@ -18,6 +19,7 @@ public record Clan(
 
     public Clan {
         Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(slug, "slug");
         Objects.requireNonNull(tag, "tag");
         Objects.requireNonNull(tagColor, "tagColor");
         description = description == null ? "" : description;

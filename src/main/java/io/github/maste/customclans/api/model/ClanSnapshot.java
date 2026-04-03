@@ -13,6 +13,7 @@ import java.util.UUID;
 public record ClanSnapshot(
         long id,
         String name,
+        String slug,
         String normalizedName,
         String tag,
         String tagColor,
@@ -28,6 +29,7 @@ public record ClanSnapshot(
 
     public ClanSnapshot {
         Objects.requireNonNull(name, "name");
+        Objects.requireNonNull(slug, "slug");
         Objects.requireNonNull(tag, "tag");
         Objects.requireNonNull(tagColor, "tagColor");
         description = description == null ? "" : description;

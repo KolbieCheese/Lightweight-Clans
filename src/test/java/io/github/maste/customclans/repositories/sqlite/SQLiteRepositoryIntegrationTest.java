@@ -8,6 +8,7 @@ import io.github.maste.customclans.models.ClanCreateResult;
 import io.github.maste.customclans.models.ClanInvite;
 import io.github.maste.customclans.models.InviteAcceptResult;
 import io.github.maste.customclans.models.InviteCreateResult;
+import io.github.maste.customclans.util.ValidationUtil;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
@@ -43,7 +44,7 @@ class SQLiteRepositoryIntegrationTest {
     }
 
     @Test
-    void createClanRejectsCaseInsensitiveDuplicateNames() {
+    void createClanRejectsDuplicateSlugVariations() {
         UUID president = UUID.randomUUID();
         ClanCreateResult created = clanRepository.createClan(
                 president,
@@ -60,7 +61,7 @@ class SQLiteRepositoryIntegrationTest {
         ClanCreateResult duplicate = clanRepository.createClan(
                 UUID.randomUUID(),
                 "Bob",
-                "crimson knights",
+                "Crimson-Knights",
                 "CK2",
                 "red",
                 Instant.now()
@@ -70,7 +71,7 @@ class SQLiteRepositoryIntegrationTest {
     }
 
     @Test
-    void renameClanRejectsCaseInsensitiveDuplicateNames() {
+    void renameClanRejectsDuplicateSlugVariations() {
         ClanCreateResult firstClan = clanRepository.createClan(
                 UUID.randomUUID(),
                 "Alice",
@@ -88,11 +89,49 @@ class SQLiteRepositoryIntegrationTest {
                 Instant.now()
         ).join();
 
-        boolean renamed = clanRepository.renameClan(secondClan.clan().id(), "crimson knights").join();
+        boolean renamed = clanRepository.renameClan(secondClan.clan().id(), "Crimson-Knights").join();
 
         assertFalse(renamed);
         assertEquals("Azure Guard", clanRepository.findById(secondClan.clan().id()).join().orElseThrow().name());
         assertEquals("Crimson Knights", clanRepository.findById(firstClan.clan().id()).join().orElseThrow().name());
+    }
+
+    @Test
+    void lookupFindsClanBySlugDisplayNameAndLowercaseDisplayName() {
+        ClanCreateResult created = clanRepository.createClan(
+                UUID.randomUUID(),
+                "Alice",
+                "Crimson Knights",
+                "CK",
+                "gold",
+                Instant.now()
+        ).join();
+
+        assertEquals(created.clan().id(), clanRepository.findBySlug("crimson-knights").join().orElseThrow().id());
+        assertEquals(created.clan().id(), clanRepository.findByName("Crimson Knights").join().orElseThrow().id());
+        assertEquals(created.clan().id(), clanRepository.findByName("crimson knights").join().orElseThrow().id());
+    }
+
+    @Test
+    void listClanSlugsReturnsCanonicalSlugsOnly() {
+        clanRepository.createClan(
+                UUID.randomUUID(),
+                "Alice",
+                "Crimson Knights",
+                "CK",
+                "gold",
+                Instant.now()
+        ).join();
+        clanRepository.createClan(
+                UUID.randomUUID(),
+                "Bob",
+                "Azure Guard",
+                "AG",
+                "blue",
+                Instant.now()
+        ).join();
+
+        assertEquals(java.util.List.of("azure-guard", "crimson-knights"), clanRepository.listClanSlugs().join());
     }
 
     @Test
@@ -203,11 +242,136 @@ class SQLiteRepositoryIntegrationTest {
         }
     }
 
+    @Test
+    void migrationGeneratesSlugForExistingClans() throws Exception {
+        Path databasePath = tempDir.resolve("legacy-slug.db");
+        seedLegacyDatabase(databasePath, java.util.List.of("Crimson Knights"));
+
+        SQLiteDatabase migratedDatabase = new SQLiteDatabase(databasePath, java.util.logging.Logger.getLogger("test"));
+        migratedDatabase.initialize();
+        try {
+            SQLiteClanRepository migratedRepository = new SQLiteClanRepository(migratedDatabase);
+            assertEquals("crimson-knights", migratedRepository.findAll().join().getFirst().slug());
+        } finally {
+            migratedDatabase.close();
+        }
+    }
+
+    @Test
+    void migrationSuffixesCollidingAndBlankSlugsByIdOrder() throws Exception {
+        Path databasePath = tempDir.resolve("legacy-collisions.db");
+        seedLegacyDatabase(
+                databasePath,
+                java.util.List.of("Crimson Knights", "Crimson-Knights", "Crimson   Knights", "***", "---")
+        );
+
+        SQLiteDatabase migratedDatabase = new SQLiteDatabase(databasePath, java.util.logging.Logger.getLogger("test"));
+        migratedDatabase.initialize();
+        try {
+            java.util.List<String> slugs = new java.util.ArrayList<>();
+            try (java.sql.Connection connection = migratedDatabase.openConnection();
+                 java.sql.PreparedStatement statement = connection.prepareStatement(
+                         "SELECT slug FROM clans ORDER BY id ASC"
+                 );
+                 java.sql.ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    slugs.add(resultSet.getString("slug"));
+                }
+            }
+
+            assertEquals(
+                    java.util.List.of("crimson-knights", "crimson-knights-2", "crimson-knights-3", "clan", "clan-2"),
+                    slugs
+            );
+            assertTrue(slugs.stream().noneMatch(String::isBlank));
+        } finally {
+            migratedDatabase.close();
+        }
+    }
+
     private static boolean supportsBannerMaterialApi() {
         try {
             return org.bukkit.Bukkit.getServer() != null && org.bukkit.Bukkit.getItemFactory() != null;
         } catch (Throwable throwable) {
             return false;
+        }
+    }
+
+    private void seedLegacyDatabase(Path databasePath, java.util.List<String> clanNames) throws Exception {
+        try (java.sql.Connection connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + databasePath.toAbsolutePath());
+             java.sql.Statement statement = connection.createStatement()) {
+            statement.execute("""
+                    CREATE TABLE clans (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        normalized_name TEXT NOT NULL,
+                        tag TEXT NOT NULL,
+                        tag_color TEXT NOT NULL,
+                        president_uuid TEXT NOT NULL,
+                        created_at INTEGER NOT NULL,
+                        updated_at INTEGER NOT NULL
+                    )
+                    """);
+            statement.execute("""
+                    CREATE TABLE clan_members (
+                        clan_id INTEGER NOT NULL,
+                        player_uuid TEXT NOT NULL UNIQUE,
+                        last_known_name TEXT NOT NULL,
+                        role TEXT NOT NULL,
+                        joined_at INTEGER NOT NULL,
+                        UNIQUE (clan_id, player_uuid)
+                    )
+                    """);
+            statement.execute("""
+                    CREATE TABLE clan_invites (
+                        clan_id INTEGER NOT NULL,
+                        invited_player_uuid TEXT NOT NULL,
+                        invited_by_uuid TEXT NOT NULL,
+                        expires_at INTEGER NOT NULL
+                    )
+                    """);
+        }
+
+        try (java.sql.Connection connection = java.sql.DriverManager.getConnection("jdbc:sqlite:" + databasePath.toAbsolutePath());
+             java.sql.PreparedStatement insertClan = connection.prepareStatement(
+                     """
+                             INSERT INTO clans (name, normalized_name, tag, tag_color, president_uuid, created_at, updated_at)
+                             VALUES (?, ?, ?, ?, ?, ?, ?)
+                             """,
+                     java.sql.Statement.RETURN_GENERATED_KEYS
+             );
+             java.sql.PreparedStatement insertMember = connection.prepareStatement(
+                     """
+                             INSERT INTO clan_members (clan_id, player_uuid, last_known_name, role, joined_at)
+                             VALUES (?, ?, ?, ?, ?)
+                             """
+             )) {
+            long now = Instant.now().toEpochMilli();
+            for (int index = 0; index < clanNames.size(); index++) {
+                String clanName = clanNames.get(index);
+                UUID presidentUuid = UUID.nameUUIDFromBytes((clanName + index).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                insertClan.setString(1, clanName);
+                insertClan.setString(2, ValidationUtil.normalizeClanName(clanName));
+                insertClan.setString(3, "T" + index);
+                insertClan.setString(4, "white");
+                insertClan.setString(5, presidentUuid.toString());
+                insertClan.setLong(6, now + index);
+                insertClan.setLong(7, now + index);
+                insertClan.executeUpdate();
+
+                long clanId;
+                try (java.sql.ResultSet generatedKeys = insertClan.getGeneratedKeys()) {
+                    generatedKeys.next();
+                    clanId = generatedKeys.getLong(1);
+                }
+
+                insertMember.setLong(1, clanId);
+                insertMember.setString(2, presidentUuid.toString());
+                insertMember.setString(3, "President" + index);
+                insertMember.setString(4, "PRESIDENT");
+                insertMember.setLong(5, now + index);
+                insertMember.executeUpdate();
+            }
         }
     }
 }

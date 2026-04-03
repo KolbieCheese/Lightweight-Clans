@@ -28,8 +28,12 @@ class ValidationUtilTest {
     }
 
     @Test
-    void normalizesClanNamesAndColors() {
+    void normalizesClanNamesSlugsAndColors() {
         assertEquals("crimson knights", ValidationUtil.normalizeClanName("  Crimson Knights  "));
+        assertEquals("crimson-knights", ValidationUtil.toSlug("  Crimson   Knights  "));
+        assertEquals("crimsonknights", ValidationUtil.toSlug("Crimson@Knights!"));
+        assertEquals("red-dragon", ValidationUtil.toSlug("Red---Dragon"));
+        assertEquals("", ValidationUtil.toSlug("***"));
         assertEquals("dark_red", ValidationUtil.normalizeClanColor("Dark Red"));
         assertEquals("#FFAA00", ValidationUtil.normalizeClanColor("#ffaa00"));
         assertEquals("dark red", ValidationUtil.formatClanColorDisplayName("dark_red"));

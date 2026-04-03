@@ -83,6 +83,9 @@ public final class ClanService {
         if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
             return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
         }
+        if (ValidationUtil.toSlug(trimmedName).isBlank()) {
+            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
+        }
 
         String derivedTag = ValidationUtil.deriveDefaultTag(trimmedName, pluginConfig.maxClanTagLength());
         return clanRepository.createClan(
@@ -174,6 +177,9 @@ public final class ClanService {
             return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-name"));
         }
         if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
+            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
+        }
+        if (ValidationUtil.toSlug(trimmedName).isBlank()) {
             return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
         }
 
@@ -402,10 +408,10 @@ public final class ClanService {
     }
 
     public List<String> suggestClanNames(String token) {
-        String normalizedToken = token == null ? "" : token.toLowerCase(java.util.Locale.ROOT);
+        String normalizedToken = token == null ? "" : token.trim().toLowerCase(java.util.Locale.ROOT);
         try {
-            return clanRepository.listClanNames().join().stream()
-                    .filter(name -> name.toLowerCase(java.util.Locale.ROOT).startsWith(normalizedToken))
+            return clanRepository.listClanSlugs().join().stream()
+                    .filter(slug -> slug.startsWith(normalizedToken))
                     .toList();
         } catch (RuntimeException exception) {
             return List.of();
@@ -414,50 +420,27 @@ public final class ClanService {
 
     public List<String> suggestClanNameWords(String[] args) {
         String[] tokens = args == null ? new String[0] : args;
+        if (tokens.length != 1) {
+            return List.of();
+        }
+
         try {
-            return clanRepository.listClanNames().join().stream()
-                    .map(name -> name.trim().split("\\s+"))
-                    .filter(words -> words.length > 0)
-                    .filter(words -> matchesWordPrefix(words, tokens))
-                    .map(words -> words[tokens.length == 0 ? 0 : tokens.length - 1])
-                    .distinct()
-                    .sorted(String.CASE_INSENSITIVE_ORDER)
-                    .toList();
+            return suggestClanNames(tokens[0]);
         } catch (RuntimeException exception) {
             return List.of();
         }
     }
 
     public boolean clanNameExists(String clanName) {
-        String normalizedName = clanName == null ? "" : clanName.trim();
-        if (normalizedName.isEmpty()) {
+        String lookupToken = clanName == null ? "" : clanName.trim();
+        if (lookupToken.isEmpty()) {
             return false;
         }
         try {
-            return clanRepository.listClanNames().join().stream()
-                    .anyMatch(name -> name.equalsIgnoreCase(normalizedName));
+            return clanRepository.findByName(lookupToken).join().isPresent();
         } catch (RuntimeException exception) {
             return false;
         }
-    }
-
-    private boolean matchesWordPrefix(String[] clanWords, String[] enteredWords) {
-        if (enteredWords.length == 0) {
-            return true;
-        }
-        if (enteredWords.length > clanWords.length) {
-            return false;
-        }
-
-        for (int index = 0; index < enteredWords.length - 1; index++) {
-            if (!clanWords[index].equalsIgnoreCase(enteredWords[index])) {
-                return false;
-            }
-        }
-
-        String lastToken = enteredWords[enteredWords.length - 1];
-        return clanWords[enteredWords.length - 1].toLowerCase(java.util.Locale.ROOT)
-                .startsWith(lastToken.toLowerCase(java.util.Locale.ROOT));
     }
 
     public CompletableFuture<ActionResult<ClanMember>> kickMember(Player player, String targetName) {
@@ -677,6 +660,7 @@ public final class ClanService {
         return new ClanSnapshot(
                 snapshot.id(),
                 snapshot.name(),
+                snapshot.slug(),
                 snapshot.normalizedName(),
                 snapshot.tag(),
                 snapshot.tagColor(),

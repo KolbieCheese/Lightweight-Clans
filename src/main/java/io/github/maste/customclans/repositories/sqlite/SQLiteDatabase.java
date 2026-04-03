@@ -10,7 +10,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -58,6 +60,7 @@ public final class SQLiteDatabase implements AutoCloseable {
                     CREATE TABLE IF NOT EXISTS clans (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
+                        slug TEXT NOT NULL,
                         normalized_name TEXT NOT NULL,
                         tag TEXT NOT NULL,
                         tag_color TEXT NOT NULL,
@@ -96,6 +99,11 @@ public final class SQLiteDatabase implements AutoCloseable {
     }
 
     private void migrateClansTable(Connection connection) throws SQLException {
+        if (!hasColumn(connection, "clans", "slug")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("ALTER TABLE clans ADD COLUMN slug TEXT NOT NULL DEFAULT ''");
+            }
+        }
         if (!hasColumn(connection, "clans", "normalized_name")) {
             try (Statement statement = connection.createStatement()) {
                 statement.execute("ALTER TABLE clans ADD COLUMN normalized_name TEXT NOT NULL DEFAULT ''");
@@ -123,24 +131,7 @@ public final class SQLiteDatabase implements AutoCloseable {
         }
         dropLegacyClanBannersTable(connection);
 
-        try (PreparedStatement statement = connection.prepareStatement("""
-                UPDATE clans
-                SET normalized_name = ?,
-                    updated_at = CASE
-                        WHEN updated_at = 0 THEN created_at
-                        ELSE updated_at
-                    END
-                WHERE id = ?
-                """);
-             PreparedStatement lookup = connection.prepareStatement("SELECT id, name FROM clans");
-             ResultSet resultSet = lookup.executeQuery()) {
-            while (resultSet.next()) {
-                statement.setString(1, ValidationUtil.normalizeClanName(resultSet.getString("name")));
-                statement.setLong(2, resultSet.getLong("id"));
-                statement.addBatch();
-            }
-            statement.executeBatch();
-        }
+        backfillClanNameTokens(connection);
 
         try (PreparedStatement duplicates = connection.prepareStatement("""
                 SELECT normalized_name
@@ -155,9 +146,67 @@ public final class SQLiteDatabase implements AutoCloseable {
             }
         }
 
+        try (PreparedStatement duplicates = connection.prepareStatement("""
+                SELECT slug
+                FROM clans
+                GROUP BY slug
+                HAVING slug = '' OR COUNT(*) > 1
+                LIMIT 1
+                """);
+             ResultSet resultSet = duplicates.executeQuery()) {
+            if (resultSet.next()) {
+                throw new SQLException("Clan slug migration failed because duplicate or blank clan slugs exist.");
+            }
+        }
+
         try (Statement statement = connection.createStatement()) {
             statement.execute("DROP INDEX IF EXISTS idx_clans_name_unique");
         }
+    }
+
+    private void backfillClanNameTokens(Connection connection) throws SQLException {
+        List<ClanNameTokens> clanNameTokens = new ArrayList<>();
+        Map<String, Integer> slugCounts = new HashMap<>();
+        try (PreparedStatement lookup = connection.prepareStatement("SELECT id, name FROM clans ORDER BY id ASC");
+             ResultSet resultSet = lookup.executeQuery()) {
+            while (resultSet.next()) {
+                long clanId = resultSet.getLong("id");
+                String clanName = resultSet.getString("name");
+                String normalizedName = ValidationUtil.normalizeClanName(clanName);
+                String slug = nextUniqueSlug(clanName, slugCounts);
+                clanNameTokens.add(new ClanNameTokens(clanId, normalizedName, slug));
+            }
+        }
+
+        try (PreparedStatement statement = connection.prepareStatement("""
+                UPDATE clans
+                SET normalized_name = ?,
+                    slug = ?,
+                    updated_at = CASE
+                        WHEN updated_at = 0 THEN created_at
+                        ELSE updated_at
+                    END
+                WHERE id = ?
+                """)) {
+            for (ClanNameTokens tokens : clanNameTokens) {
+                statement.setString(1, tokens.normalizedName());
+                statement.setString(2, tokens.slug());
+                statement.setLong(3, tokens.clanId());
+                statement.addBatch();
+            }
+            statement.executeBatch();
+        }
+    }
+
+    private String nextUniqueSlug(String clanName, Map<String, Integer> slugCounts) {
+        String baseSlug = ValidationUtil.toSlug(clanName);
+        if (baseSlug.isBlank()) {
+            baseSlug = "clan";
+        }
+
+        int occurrence = slugCounts.getOrDefault(baseSlug, 0) + 1;
+        slugCounts.put(baseSlug, occurrence);
+        return occurrence == 1 ? baseSlug : baseSlug + "-" + occurrence;
     }
 
     private void dropLegacyClanBannersTable(Connection connection) throws SQLException {
@@ -201,6 +250,7 @@ public final class SQLiteDatabase implements AutoCloseable {
 
     private void createIndexes(Connection connection) throws SQLException {
         try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_clans_slug_unique ON clans(slug)");
             statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_clans_normalized_name_unique ON clans(normalized_name)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_clan_members_clan_id ON clan_members(clan_id)");
             statement.execute("""
@@ -391,5 +441,8 @@ public final class SQLiteDatabase implements AutoCloseable {
                     logger.severe("Uncaught SQLite worker exception: " + throwable.getMessage()));
             return thread;
         }
+    }
+
+    private record ClanNameTokens(long clanId, String normalizedName, String slug) {
     }
 }

@@ -36,6 +36,8 @@ public interface LightweightClansApi {
 
     /**
      * Synchronous lookup that may block while reading from persistence.
+     *
+     * <p>Accepts either the canonical clan slug or the clan display name.
      */
     Optional<ClanSnapshot> getClanByName(String name);
 
@@ -46,6 +48,18 @@ public interface LightweightClansApi {
 
     /**
      * Synchronous lookup that may block while reading from persistence.
+     */
+    Optional<ClanSnapshot> getClanBySlug(String slug);
+
+    /**
+     * Asynchronous lookup variant of {@link #getClanBySlug(String)} for non-blocking integrations.
+     */
+    CompletableFuture<Optional<ClanSnapshot>> getClanBySlugAsync(String slug);
+
+    /**
+     * Synchronous lookup that may block while reading from persistence.
+     *
+     * <p>This is a legacy lookup path backed by the stored {@code normalized_name} token.
      */
     Optional<ClanSnapshot> getClanByNormalizedName(String normalizedName);
 

@@ -118,6 +118,18 @@ class ClanServiceTest {
     }
 
     @Test
+    void publicLookupFindsClanBySlug() {
+        Player player = mockPlayer("Alice");
+        clanService.createClan(player, "Crimson Knights").join();
+
+        ActionResult<io.github.maste.customclans.models.ClanInfo> result = clanService.getClanInfo("crimson-knights").join();
+
+        assertTrue(result.success());
+        assertEquals("Crimson Knights", result.value().clan().name());
+        assertEquals("crimson-knights", result.value().clan().slug());
+    }
+
+    @Test
     void publicLookupFailsForUnknownClan() {
         ActionResult<io.github.maste.customclans.models.ClanInfo> result = clanService.getClanInfo("Missing Clan").join();
 
@@ -160,6 +172,31 @@ class ClanServiceTest {
         assertTrue(result.success());
         assertEquals("rename.success", result.messageKey());
         assertEquals(newName, clanService.getClanInfo(newName).join().value().clan().name());
+    }
+
+    @Test
+    void createClanRejectsDuplicateSlugVariation() {
+        Player alice = mockPlayer("Alice");
+        Player bob = mockPlayer("Bob");
+        assertTrue(clanService.createClan(alice, "Crimson Knights").join().success());
+
+        ActionResult<Clan> result = clanService.createClan(bob, "Crimson-Knights").join();
+
+        assertFalse(result.success());
+        assertEquals("create.name-taken", result.messageKey());
+    }
+
+    @Test
+    void renameClanRejectsDuplicateSlugVariation() {
+        Player alice = mockPlayer("Alice");
+        Player bob = mockPlayer("Bob");
+        assertTrue(clanService.createClan(alice, "Crimson Knights").join().success());
+        assertTrue(clanService.createClan(bob, "Azure Guard").join().success());
+
+        ActionResult<Void> result = clanService.renameClan(bob, "Crimson-Knights").join();
+
+        assertFalse(result.success());
+        assertEquals("rename.name-taken", result.messageKey());
     }
 
     @Test
@@ -246,6 +283,33 @@ class ClanServiceTest {
         assertEquals("leave.success", result.messageKey());
         assertTrue(chatService.cachedSnapshot(president.getUniqueId()).isPresent());
         assertTrue(chatService.cachedSnapshot(member.getUniqueId()).isEmpty());
+    }
+
+    @Test
+    void acceptInviteResolvesClanBySlug() {
+        Player president = mockPlayer("Alice");
+        Player invited = mockOnlinePlayer("Bob");
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+        assertTrue(inviteService.sendInvite(president, invited).join().success());
+
+        ActionResult<Clan> result = inviteService.acceptInvite(invited, "crimson-knights").join();
+
+        assertTrue(result.success());
+        assertEquals("accept.success", result.messageKey());
+        assertEquals("Crimson Knights", result.value().name());
+    }
+
+    @Test
+    void denyInviteResolvesClanByLowercaseDisplayName() {
+        Player president = mockPlayer("Alice");
+        Player invited = mockOnlinePlayer("Bob");
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+        assertTrue(inviteService.sendInvite(president, invited).join().success());
+
+        ActionResult<Void> result = inviteService.denyInvite(invited, "crimson knights").join();
+
+        assertTrue(result.success());
+        assertEquals("deny.success", result.messageKey());
     }
 
     @Test

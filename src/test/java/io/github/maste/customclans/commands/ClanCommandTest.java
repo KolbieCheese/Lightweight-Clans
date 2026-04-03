@@ -144,23 +144,25 @@ class ClanCommandTest {
     }
 
     @Test
-    void infoTabCompletionSuggestsNextClanWordForMultiWordNames() {
-        when(clanService.suggestClanNameWords(any(String[].class))).thenReturn(List.of("Guard"));
+    void infoTabCompletionSuggestsClanSlugOnly() {
+        when(clanService.suggestClanNameWords(any(String[].class))).thenReturn(List.of("crimson-knights"));
 
         List<String> suggestions = new InfoSubcommand(plugin, messages, clanService, pluginConfig)
-                .tabComplete(sender, new String[]{"Azure", ""});
+                .tabComplete(sender, new String[]{"crim"});
 
-        org.junit.jupiter.api.Assertions.assertEquals(List.of("Guard"), suggestions);
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("crimson-knights"), suggestions);
     }
 
     @Test
-    void membersTabCompletionSuggestsNextClanWordForMultiWordNames() {
-        when(clanService.suggestClanNameWords(any(String[].class))).thenReturn(List.of("Guard"));
+    void membersTabCompletionReturnsNoSuggestionsForMultiTokenDisplayFragments() {
+        when(clanService.suggestClanNameWords(any(String[].class))).thenAnswer(invocation ->
+                ((String[]) invocation.getArgument(0)).length == 1 ? List.of("crimson-knights") : List.of()
+        );
 
         List<String> suggestions = new MembersSubcommand(plugin, messages, clanService)
-                .tabComplete(sender, new String[]{"Azure", ""});
+                .tabComplete(sender, new String[]{"Crimson", ""});
 
-        org.junit.jupiter.api.Assertions.assertEquals(List.of("Guard"), suggestions);
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(), suggestions);
     }
 
     @Test

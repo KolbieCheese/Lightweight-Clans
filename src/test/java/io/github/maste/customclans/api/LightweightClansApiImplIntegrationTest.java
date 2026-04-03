@@ -109,6 +109,7 @@ class LightweightClansApiImplIntegrationTest {
         ClanSnapshot snapshot = allClans.getFirst();
         assertEquals(clan.id(), snapshot.id());
         assertEquals("Crimson Knights", snapshot.name());
+        assertEquals("crimson-knights", snapshot.slug());
         assertEquals("crimson knights", snapshot.normalizedName());
         assertEquals("CK", snapshot.tag());
         assertEquals("#FFAA00", snapshot.tagColor());
@@ -143,6 +144,19 @@ class LightweightClansApiImplIntegrationTest {
 
         assertEquals("Crimson Knights", snapshot.name());
         assertEquals("Alice", snapshot.presidentName());
+    }
+
+    @Test
+    void getClanBySlugReturnsExpectedClan() {
+        Player president = mockPlayer("Alice");
+        holder.clanRepository
+                .createClan(president.getUniqueId(), president.getName(), "Crimson Knights", "CK", "white", Instant.now())
+                .join();
+
+        ClanSnapshot snapshot = api.getClanBySlug("crimson-knights").orElseThrow();
+
+        assertEquals("Crimson Knights", snapshot.name());
+        assertEquals("crimson-knights", snapshot.slug());
     }
 
     @Test
@@ -189,6 +203,8 @@ class LightweightClansApiImplIntegrationTest {
 
         assertEquals(syncById, api.getClanByIdAsync(clanId).join().orElseThrow());
         assertEquals(syncById, api.getClanByNameAsync("cRiMsOn kNiGhTs").join().orElseThrow());
+        assertEquals(syncById, api.getClanByNameAsync("crimson-knights").join().orElseThrow());
+        assertEquals(syncById, api.getClanBySlugAsync(syncById.slug()).join().orElseThrow());
         assertEquals(syncById, api.getClanByNormalizedNameAsync(syncById.normalizedName()).join().orElseThrow());
         assertEquals(List.of(syncById), api.getAllClansAsync().join());
         assertEquals(syncById.members(), api.getMembersForClanAsync(clanId).join());
