@@ -41,6 +41,13 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
   - `/clan transfer <player>`
   - `/clan kick <player>`
   - `/clan disband`
+- Admin actions:
+  - `/clan admin rename <clan> <new clan name>`
+  - `/clan admin tag <clan> <new tag>`
+  - `/clan admin color <clan> <named color|#RRGGBB>`
+  - `/clan admin setbanner <clan>` (must hold a banner in main hand)
+  - `/clan admin disband <clan>`
+  - `/clan reload`
 
 `/clan info` and `/clan members` are intentionally not implemented as separate convenience aliases in this MVP.
 
@@ -52,9 +59,17 @@ Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Pape
 - `clans.chat` (default `true`): `/clan chat`, `/clan chat toggle`
 - `clans.lookup` (default `true`): `/clan info [clan name]` and `/clan members [clan name]`
 - `clans.manage` (default `true`): `/clan rename`, `/clan description`, `/clan tag`, `/clan color`, `/clan setbanner`, `/clan transfer`, `/clan kick`, `/clan disband`
-- `clans.admin` (default `op`): reserved for future admin or bypass features
+- `clans.admin` (default `op`): `/clan admin ...` namespace access and `/clan reload`
+- `clans.admin.rename` (default `op`): `/clan admin rename`
+- `clans.admin.tag` (default `op`): `/clan admin tag`
+- `clans.admin.color` (default `op`): `/clan admin color`
+- `clans.admin.setbanner` (default `op`): `/clan admin setbanner`
+- `clans.admin.disband` (default `op`): `/clan admin disband`
+- `clans.admin.bypass.restricted-names` (default `op`): bypasses restricted clan name/tag moderation checks
 
 `clans.manage` only allows a player to attempt management commands. President-only actions are still enforced in the service layer, so a non-President cannot rename, retag, recolor, transfer, kick, or disband even if they somehow receive the permission node.
+
+`/clan admin ...` bypasses clan membership and president checks intentionally, but it still uses the normal validation rules for names, tags, colors, banner validity, and slug uniqueness.
 
 ## Role Rules
 
@@ -306,7 +321,6 @@ Clan lookup is always public through `/clan info [clan name]` and `/clan members
 ## MVP Limitations
 
 - Invited players must be online.
-- `clans.admin` is reserved but does not currently unlock any extra commands or bypasses.
 - Only the configured tag prefix is colored in public chat; player names and message text remain on the normal format unless you change the chat templates.
 
 ## Architecture

@@ -19,5 +19,8 @@ public final class HelpSubcommand extends AbstractClanSubcommand {
         }
 
         messages.sendList(sender, "help.lines");
+        if (sender.hasPermission("clans.admin")) {
+            messages.sendList(sender, "help.admin-lines");
+        }
     }
 }

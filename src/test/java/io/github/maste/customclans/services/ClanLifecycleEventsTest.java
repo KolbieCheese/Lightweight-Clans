@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -47,6 +48,7 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Server;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
@@ -233,6 +235,38 @@ class ClanLifecycleEventsTest {
 
         ClanDeletedEvent deletedEvent = firstEvent(ClanDeletedEvent.class);
         assertTrue(deletedEvent.getDeletedClan().updatedAt().isAfter(beforeDisband.updatedAt()));
+    }
+
+    @Test
+    void adminActionsFireLifecycleEventsAfterPersistence() {
+        Player alice = mockOnlinePlayer("Alice");
+        Player adminBannerHolder = mockOnlinePlayer("Moderator");
+        CommandSender console = mock(CommandSender.class);
+
+        assertTrue(clanService.createClan(alice, "Crimson Knights").join().success());
+
+        holder.capturedEvents.clear();
+        holder.persistenceVerifiedEvents.clear();
+        holder.verifyPersistenceOnEvent = true;
+
+        assertTrue(clanService.adminRenameClan(console, "crimson-knights", "Red Legion").join().success());
+        assertTrue(clanService.adminUpdateTag(console, "red-legion", "RL").join().success());
+        assertTrue(clanService.adminUpdateColor(console, "Red Legion", "#00FF00").join().success());
+        assertTrue(clanService.adminSetBanner(mockPresidentHoldingBanner(adminBannerHolder), "red-legion").join().success());
+        assertTrue(clanService.adminDisbandClan(console, "Red Legion").join().success());
+
+        List<ClanUpdatedEvent> updatedEvents = holder.capturedEvents.stream()
+                .filter(ClanUpdatedEvent.class::isInstance)
+                .map(ClanUpdatedEvent.class::cast)
+                .toList();
+
+        assertTrue(updatedEvents.stream().anyMatch(event -> event.getChangedFields().orElse(Set.of()).contains("name")));
+        assertTrue(updatedEvents.stream().anyMatch(event -> event.getChangedFields().orElse(Set.of()).contains("tag")));
+        assertTrue(updatedEvents.stream().anyMatch(event -> event.getChangedFields().orElse(Set.of()).contains("tagColor")));
+        assertTrue(updatedEvents.stream().anyMatch(event -> event.getChangedFields().orElse(Set.of()).contains("banner")));
+        assertTrue(holder.capturedEvents.stream().anyMatch(ClanBannerUpdatedEvent.class::isInstance));
+        assertTrue(holder.capturedEvents.stream().anyMatch(ClanDeletedEvent.class::isInstance));
+        assertFalse(holder.persistenceVerifiedEvents.isEmpty());
     }
 
     private <T extends Event> T firstEvent(Class<T> type) {

@@ -7,6 +7,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import org.bukkit.entity.Player;
+import org.bukkit.permissions.Permissible;
 
 public final class NameModerationPolicy {
 
@@ -40,7 +41,11 @@ public final class NameModerationPolicy {
     }
 
     public boolean isRestrictedFor(Player player, String value) {
-        if (!enabled || hasBypass(player) || value == null || value.isBlank()) {
+        return isRestrictedFor((Permissible) player, value);
+    }
+
+    public boolean isRestrictedFor(Permissible actor, String value) {
+        if (!enabled || hasBypass(actor) || value == null || value.isBlank()) {
             return false;
         }
 
@@ -65,11 +70,11 @@ public final class NameModerationPolicy {
         return false;
     }
 
-    private boolean hasBypass(Player player) {
-        return player != null
+    private boolean hasBypass(Permissible actor) {
+        return actor != null
                 && bypassPermission != null
                 && !bypassPermission.isBlank()
-                && player.hasPermission(bypassPermission);
+                && actor.hasPermission(bypassPermission);
     }
 
     private boolean isException(String normalizedValue, Set<String> normalizedTokens) {

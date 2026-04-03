@@ -31,12 +31,14 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.Material;
-import org.bukkit.event.Event;
 import org.bukkit.entity.Player;
+import org.bukkit.command.CommandSender;
+import org.bukkit.event.Event;
 import org.bukkit.block.banner.PatternType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.block.banner.Pattern;
+import org.bukkit.permissions.Permissible;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public final class ClanService {
@@ -70,23 +72,15 @@ public final class ClanService {
     }
 
     public CompletableFuture<ActionResult<Clan>> createClan(Player player, String clanName) {
-        String trimmedName = clanName.trim();
-        if (trimmedName.length() > pluginConfig.maxClanNameLength()) {
+        ActionResult<String> nameValidation = validateClanName(player, clanName);
+        if (!nameValidation.success()) {
             return CompletableFuture.completedFuture(ActionResult.failure(
-                    "validation.name-too-long",
-                    Map.of("max", String.valueOf(pluginConfig.maxClanNameLength()))
+                    nameValidation.messageKey(),
+                    nameValidation.placeholders()
             ));
         }
-        if (nameModerationPolicy.isRestrictedFor(player, trimmedName)) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-name"));
-        }
-        if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
-        }
-        if (ValidationUtil.toSlug(trimmedName).isBlank()) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
-        }
 
+        String trimmedName = nameValidation.value();
         String derivedTag = ValidationUtil.deriveDefaultTag(trimmedName, pluginConfig.maxClanTagLength());
         return clanRepository.createClan(
                 player.getUniqueId(),
@@ -166,22 +160,15 @@ public final class ClanService {
     }
 
     public CompletableFuture<ActionResult<Void>> renameClan(Player player, String newName) {
-        String trimmedName = newName.trim();
-        if (trimmedName.length() > pluginConfig.maxClanNameLength()) {
+        ActionResult<String> nameValidation = validateClanName(player, newName);
+        if (!nameValidation.success()) {
             return CompletableFuture.completedFuture(ActionResult.failure(
-                    "validation.name-too-long",
-                    Map.of("max", String.valueOf(pluginConfig.maxClanNameLength()))
+                    nameValidation.messageKey(),
+                    nameValidation.placeholders()
             ));
         }
-        if (nameModerationPolicy.isRestrictedFor(player, trimmedName)) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-name"));
-        }
-        if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
-        }
-        if (ValidationUtil.toSlug(trimmedName).isBlank()) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-name"));
-        }
+
+        String trimmedName = nameValidation.value();
 
         return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
@@ -192,38 +179,26 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
-                    clanRepository.renameClan(snapshot.clanId(), trimmedName).thenCompose(renamed -> {
-                if (!renamed) {
-                    return CompletableFuture.completedFuture(ActionResult.failure("rename.name-taken"));
-                }
-
-                return refreshClanSnapshots(snapshot.clanId())
-                        .thenCompose(unused -> loadRequiredClanSnapshot(snapshot.clanId()))
-                        .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("name")))
-                                .thenApply(eventUnused -> ActionResult.success(
-                                        "rename.success",
-                                        Map.of("name", trimmedName),
-                                        null
-                                )));
-            }));
+            return applyRename(
+                    snapshot.clanId(),
+                    trimmedName,
+                    "rename.success",
+                    Map.of("name", trimmedName),
+                    "rename.name-taken"
+            );
         });
     }
 
     public CompletableFuture<ActionResult<Void>> updateTag(Player player, String newTag) {
-        String trimmedTag = newTag.trim();
-        if (trimmedTag.length() > pluginConfig.maxClanTagLength()) {
+        ActionResult<String> tagValidation = validateClanTag(player, newTag);
+        if (!tagValidation.success()) {
             return CompletableFuture.completedFuture(ActionResult.failure(
-                    "validation.tag-too-long",
-                    Map.of("max", String.valueOf(pluginConfig.maxClanTagLength()))
+                    tagValidation.messageKey(),
+                    tagValidation.placeholders()
             ));
         }
-        if (!ValidationUtil.isValidClanTag(trimmedTag, pluginConfig.maxClanTagLength())) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.invalid-tag"));
-        }
-        if (nameModerationPolicy.isRestrictedFor(player, trimmedTag)) {
-            return CompletableFuture.completedFuture(ActionResult.failure("validation.restricted-tag"));
-        }
+
+        String trimmedTag = tagValidation.value();
 
         return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
@@ -234,34 +209,25 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
-                    clanRepository.updateClanTag(snapshot.clanId(), trimmedTag).thenCompose(unused ->
-                            refreshClanSnapshots(snapshot.clanId())
-                                    .thenCompose(refreshUnused -> loadRequiredClanSnapshot(snapshot.clanId()))
-                                    .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("tag")))
-                                            .thenApply(eventUnused -> ActionResult.success(
-                                                    "tag.success",
-                                                    Map.of("tag", trimmedTag),
-                                                    null
-                                            )))));
+            return applyTagUpdate(
+                    snapshot.clanId(),
+                    trimmedTag,
+                    "tag.success",
+                    Map.of("tag", trimmedTag)
+            );
         });
     }
 
     public CompletableFuture<ActionResult<Void>> updateColor(Player player, String colorName) {
-        String normalizedColor = pluginConfig.normalizeClanColor(colorName);
-        if (normalizedColor.isBlank()) {
+        ActionResult<String> colorValidation = validateClanColor(player, colorName);
+        if (!colorValidation.success()) {
             return CompletableFuture.completedFuture(ActionResult.failure(
-                    "validation.invalid-color",
-                    Map.of("color", colorName)
+                    colorValidation.messageKey(),
+                    colorValidation.placeholders()
             ));
         }
-        if (pluginConfig.isRestrictedGoldColor(normalizedColor)
-                && !player.hasPermission(pluginConfig.nameModerationConfig().bypassPermission())) {
-            return CompletableFuture.completedFuture(ActionResult.failure(
-                    "validation.restricted-color",
-                    Map.of("color", pluginConfig.formatColorDisplayName(normalizedColor))
-            ));
-        }
+
+        String normalizedColor = colorValidation.value();
 
         return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
@@ -272,16 +238,12 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
-                    clanRepository.updateClanColor(snapshot.clanId(), normalizedColor).thenCompose(unused ->
-                            refreshClanSnapshots(snapshot.clanId())
-                                    .thenCompose(refreshUnused -> loadRequiredClanSnapshot(snapshot.clanId()))
-                                    .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("tagColor")))
-                                            .thenApply(eventUnused -> ActionResult.success(
-                                                    "color.success",
-                                                    Map.of("color", pluginConfig.formatColorDisplayName(normalizedColor)),
-                                                    null
-                                            )))));
+            return applyColorUpdate(
+                    snapshot.clanId(),
+                    normalizedColor,
+                    "color.success",
+                    Map.of("color", pluginConfig.formatColorDisplayName(normalizedColor))
+            );
         });
     }
 
@@ -324,6 +286,18 @@ public final class ClanService {
     }
 
     public CompletableFuture<ActionResult<Void>> setClanBanner(Player player) {
+        ActionResult<BannerUpdateRequest> bannerValidation = validateHeldBanner(
+                player,
+                "banner.must-hold-banner",
+                "banner.invalid-banner"
+        );
+        if (!bannerValidation.success()) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    bannerValidation.messageKey(),
+                    bannerValidation.placeholders()
+            ));
+        }
+
         return requirePresident(player.getUniqueId()).thenCompose(snapshotResult -> {
             if (!snapshotResult.success()) {
                 return CompletableFuture.completedFuture(ActionResult.failure(
@@ -332,41 +306,11 @@ public final class ClanService {
                 ));
             }
 
-            ItemStack itemInHand = player.getInventory().getItemInMainHand();
-            if (itemInHand == null || itemInHand.getAmount() <= 0 || isAirMaterial(itemInHand.getType())) {
-                return CompletableFuture.completedFuture(ActionResult.failure("banner.must-hold-banner"));
-            }
-
-            Material material = itemInHand.getType();
-            String materialName = material.name();
-            if (!materialName.endsWith("_BANNER") || materialName.endsWith("WALL_BANNER")) {
-                return CompletableFuture.completedFuture(ActionResult.failure("banner.must-hold-banner"));
-            }
-            if (!(itemInHand.getItemMeta() instanceof BannerMeta bannerMeta)) {
-                return CompletableFuture.completedFuture(ActionResult.failure("banner.invalid-banner"));
-            }
-
-            List<ClanBannerData.PatternSpec> patterns = bannerMeta.getPatterns().stream()
-                    .map(pattern -> new ClanBannerData.PatternSpec(
-                            patternTypeId(pattern.getPattern()),
-                            dyeColorId(pattern.getColor())
-                    ))
-                    .toList();
-
-            long clanId = snapshotResult.value().clanId();
-            return loadRequiredClanSnapshot(clanId).thenCompose(before ->
-                    clanRepository.updateClanBanner(
-                                    snapshotResult.value().clanId(),
-                                    materialName,
-                                    serializePatternSpecs(patterns)
-                            )
-                            .thenCompose(unused -> refreshClanSnapshots(clanId))
-                            .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
-                            .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
-                                    .thenCompose(eventUnused ->
-                                            publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner")))
-                                    )
-                                    .thenApply(updatedUnused -> ActionResult.success("banner.set-success", null)))
+            return applyBannerUpdate(
+                    snapshotResult.value().clanId(),
+                    bannerValidation.value(),
+                    "banner.set-success",
+                    Map.of()
             );
         });
     }
@@ -546,21 +490,159 @@ public final class ClanService {
             }
 
             PlayerClanSnapshot snapshot = snapshotResult.value();
-            return loadRequiredClanSnapshot(snapshot.clanId()).thenCompose(before ->
-                    clanMemberRepository.findByClanId(snapshot.clanId()).thenCompose(members -> {
-                        Instant deletedAt = Instant.now();
-                        ClanSnapshot deletedSnapshot = withUpdatedAt(before, deletedAt);
-                        return clanRepository.disbandClan(snapshot.clanId(), deletedAt).thenCompose(unused ->
-                                    publishEvent(new ClanDeletedEvent(deletedSnapshot)).thenApply(eventUnused -> {
-                                        chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
-                                        return ActionResult.success(
-                                                "disband.success-self",
-                                                Map.of("clan", snapshot.clanName()),
-                                                members
-                                        );
-                                    })
-                            );
-                    })
+            return applyDisband(
+                    snapshot.clanId(),
+                    "disband.success-self",
+                    Map.of("clan", snapshot.clanName())
+            );
+        });
+    }
+
+    public CompletableFuture<ActionResult<Void>> adminRenameClan(
+            CommandSender sender,
+            String clanIdentifier,
+            String newName
+    ) {
+        ActionResult<String> nameValidation = validateClanName(sender, newName);
+        if (!nameValidation.success()) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    nameValidation.messageKey(),
+                    nameValidation.placeholders()
+            ));
+        }
+
+        String trimmedName = nameValidation.value();
+        return resolveClan(clanIdentifier, "admin.lookup.not-found").thenCompose(clanResult -> {
+            if (!clanResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        clanResult.messageKey(),
+                        clanResult.placeholders()
+                ));
+            }
+
+            Clan clan = clanResult.value();
+            return applyRename(
+                    clan.id(),
+                    trimmedName,
+                    "admin.rename.success",
+                    Map.of("old_name", clan.name(), "name", trimmedName),
+                    "rename.name-taken"
+            );
+        });
+    }
+
+    public CompletableFuture<ActionResult<Void>> adminUpdateTag(
+            CommandSender sender,
+            String clanIdentifier,
+            String newTag
+    ) {
+        ActionResult<String> tagValidation = validateClanTag(sender, newTag);
+        if (!tagValidation.success()) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    tagValidation.messageKey(),
+                    tagValidation.placeholders()
+            ));
+        }
+
+        String trimmedTag = tagValidation.value();
+        return resolveClan(clanIdentifier, "admin.lookup.not-found").thenCompose(clanResult -> {
+            if (!clanResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        clanResult.messageKey(),
+                        clanResult.placeholders()
+                ));
+            }
+
+            Clan clan = clanResult.value();
+            return applyTagUpdate(
+                    clan.id(),
+                    trimmedTag,
+                    "admin.tag.success",
+                    Map.of("clan", clan.name(), "tag", trimmedTag)
+            );
+        });
+    }
+
+    public CompletableFuture<ActionResult<Void>> adminUpdateColor(
+            CommandSender sender,
+            String clanIdentifier,
+            String colorName
+    ) {
+        ActionResult<String> colorValidation = validateClanColor(sender, colorName);
+        if (!colorValidation.success()) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    colorValidation.messageKey(),
+                    colorValidation.placeholders()
+            ));
+        }
+
+        String normalizedColor = colorValidation.value();
+        return resolveClan(clanIdentifier, "admin.lookup.not-found").thenCompose(clanResult -> {
+            if (!clanResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        clanResult.messageKey(),
+                        clanResult.placeholders()
+                ));
+            }
+
+            Clan clan = clanResult.value();
+            return applyColorUpdate(
+                    clan.id(),
+                    normalizedColor,
+                    "admin.color.success",
+                    Map.of("clan", clan.name(), "color", pluginConfig.formatColorDisplayName(normalizedColor))
+            );
+        });
+    }
+
+    public CompletableFuture<ActionResult<Void>> adminSetBanner(Player player, String clanIdentifier) {
+        ActionResult<BannerUpdateRequest> bannerValidation = validateHeldBanner(
+                player,
+                "admin.setbanner.must-hold-banner",
+                "admin.setbanner.invalid-banner"
+        );
+        if (!bannerValidation.success()) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    bannerValidation.messageKey(),
+                    bannerValidation.placeholders()
+            ));
+        }
+
+        return resolveClan(clanIdentifier, "admin.lookup.not-found").thenCompose(clanResult -> {
+            if (!clanResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        clanResult.messageKey(),
+                        clanResult.placeholders()
+                ));
+            }
+
+            Clan clan = clanResult.value();
+            return applyBannerUpdate(
+                    clan.id(),
+                    bannerValidation.value(),
+                    "admin.setbanner.success",
+                    Map.of("clan", clan.name())
+            );
+        });
+    }
+
+    public CompletableFuture<ActionResult<List<ClanMember>>> adminDisbandClan(
+            CommandSender sender,
+            String clanIdentifier
+    ) {
+        return resolveClan(clanIdentifier, "admin.lookup.not-found").thenCompose(clanResult -> {
+            if (!clanResult.success()) {
+                return CompletableFuture.completedFuture(ActionResult.failure(
+                        clanResult.messageKey(),
+                        clanResult.placeholders()
+                ));
+            }
+
+            Clan clan = clanResult.value();
+            return applyDisband(
+                    clan.id(),
+                    "admin.disband.success-self",
+                    Map.of("clan", clan.name())
             );
         });
     }
@@ -604,6 +686,219 @@ public final class ClanService {
                     ? snapshotResult
                     : ActionResult.failure("common.not-president");
         });
+    }
+
+    private ActionResult<String> validateClanName(Permissible actor, String clanName) {
+        String trimmedName = clanName == null ? "" : clanName.trim();
+        if (trimmedName.length() > pluginConfig.maxClanNameLength()) {
+            return ActionResult.failure(
+                    "validation.name-too-long",
+                    Map.of("max", String.valueOf(pluginConfig.maxClanNameLength()))
+            );
+        }
+        if (nameModerationPolicy.isRestrictedFor(actor, trimmedName)) {
+            return ActionResult.failure("validation.restricted-name");
+        }
+        if (!ValidationUtil.isValidClanName(trimmedName, pluginConfig.maxClanNameLength())) {
+            return ActionResult.failure("validation.invalid-name");
+        }
+        if (ValidationUtil.toSlug(trimmedName).isBlank()) {
+            return ActionResult.failure("validation.invalid-name");
+        }
+        return ActionResult.success("", trimmedName);
+    }
+
+    private ActionResult<String> validateClanTag(Permissible actor, String newTag) {
+        String trimmedTag = newTag == null ? "" : newTag.trim();
+        if (trimmedTag.length() > pluginConfig.maxClanTagLength()) {
+            return ActionResult.failure(
+                    "validation.tag-too-long",
+                    Map.of("max", String.valueOf(pluginConfig.maxClanTagLength()))
+            );
+        }
+        if (!ValidationUtil.isValidClanTag(trimmedTag, pluginConfig.maxClanTagLength())) {
+            return ActionResult.failure("validation.invalid-tag");
+        }
+        if (nameModerationPolicy.isRestrictedFor(actor, trimmedTag)) {
+            return ActionResult.failure("validation.restricted-tag");
+        }
+        return ActionResult.success("", trimmedTag);
+    }
+
+    private ActionResult<String> validateClanColor(Permissible actor, String colorName) {
+        String normalizedColor = pluginConfig.normalizeClanColor(colorName);
+        if (normalizedColor.isBlank()) {
+            return ActionResult.failure(
+                    "validation.invalid-color",
+                    Map.of("color", colorName == null ? "" : colorName)
+            );
+        }
+        if (pluginConfig.isRestrictedGoldColor(normalizedColor)
+                && (actor == null || !actor.hasPermission(pluginConfig.nameModerationConfig().bypassPermission()))) {
+            return ActionResult.failure(
+                    "validation.restricted-color",
+                    Map.of("color", pluginConfig.formatColorDisplayName(normalizedColor))
+            );
+        }
+        return ActionResult.success("", normalizedColor);
+    }
+
+    private ActionResult<BannerUpdateRequest> validateHeldBanner(
+            Player player,
+            String mustHoldBannerMessageKey,
+            String invalidBannerMessageKey
+    ) {
+        ItemStack itemInHand = player.getInventory().getItemInMainHand();
+        if (itemInHand == null || itemInHand.getAmount() <= 0 || isAirMaterial(itemInHand.getType())) {
+            return ActionResult.failure(mustHoldBannerMessageKey);
+        }
+
+        Material material = itemInHand.getType();
+        String materialName = material.name();
+        if (!materialName.endsWith("_BANNER") || materialName.endsWith("WALL_BANNER")) {
+            return ActionResult.failure(mustHoldBannerMessageKey);
+        }
+        if (!(itemInHand.getItemMeta() instanceof BannerMeta bannerMeta)) {
+            return ActionResult.failure(invalidBannerMessageKey);
+        }
+
+        List<ClanBannerData.PatternSpec> patterns = bannerMeta.getPatterns().stream()
+                .map(pattern -> new ClanBannerData.PatternSpec(
+                        patternTypeId(pattern.getPattern()),
+                        dyeColorId(pattern.getColor())
+                ))
+                .toList();
+
+        return ActionResult.success(
+                "",
+                new BannerUpdateRequest(materialName, serializePatternSpecs(patterns))
+        );
+    }
+
+    private CompletableFuture<ActionResult<Clan>> resolveClan(String clanIdentifier, String notFoundMessageKey) {
+        String trimmedIdentifier = clanIdentifier == null ? "" : clanIdentifier.trim();
+        if (trimmedIdentifier.isEmpty()) {
+            return CompletableFuture.completedFuture(ActionResult.failure(
+                    notFoundMessageKey,
+                    Map.of("name", "")
+            ));
+        }
+
+        return clanRepository.findByName(trimmedIdentifier).thenApply(optionalClan ->
+                optionalClan.<ActionResult<Clan>>map(clan -> ActionResult.success("", clan))
+                        .orElseGet(() -> ActionResult.failure(
+                                notFoundMessageKey,
+                                Map.of("name", trimmedIdentifier)
+                        )));
+    }
+
+    private CompletableFuture<ActionResult<Void>> applyRename(
+            long clanId,
+            String newName,
+            String successMessageKey,
+            Map<String, String> successPlaceholders,
+            String nameTakenMessageKey
+    ) {
+        return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                clanRepository.renameClan(clanId, newName).thenCompose(renamed -> {
+                    if (!renamed) {
+                        return CompletableFuture.completedFuture(ActionResult.failure(nameTakenMessageKey));
+                    }
+
+                    return refreshClanSnapshots(clanId)
+                            .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
+                            .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("name")))
+                                    .thenApply(eventUnused -> ActionResult.success(
+                                            successMessageKey,
+                                            successPlaceholders,
+                                            null
+                                    )));
+                }));
+    }
+
+    private CompletableFuture<ActionResult<Void>> applyTagUpdate(
+            long clanId,
+            String newTag,
+            String successMessageKey,
+            Map<String, String> successPlaceholders
+    ) {
+        return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                clanRepository.updateClanTag(clanId, newTag).thenCompose(unused ->
+                        refreshClanSnapshots(clanId)
+                                .thenCompose(refreshUnused -> loadRequiredClanSnapshot(clanId))
+                                .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("tag")))
+                                        .thenApply(eventUnused -> ActionResult.success(
+                                                successMessageKey,
+                                                successPlaceholders,
+                                                null
+                                        )))));
+    }
+
+    private CompletableFuture<ActionResult<Void>> applyColorUpdate(
+            long clanId,
+            String normalizedColor,
+            String successMessageKey,
+            Map<String, String> successPlaceholders
+    ) {
+        return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                clanRepository.updateClanColor(clanId, normalizedColor).thenCompose(unused ->
+                        refreshClanSnapshots(clanId)
+                                .thenCompose(refreshUnused -> loadRequiredClanSnapshot(clanId))
+                                .thenCompose(after -> publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("tagColor")))
+                                        .thenApply(eventUnused -> ActionResult.success(
+                                                successMessageKey,
+                                                successPlaceholders,
+                                                null
+                                        )))));
+    }
+
+    private CompletableFuture<ActionResult<Void>> applyBannerUpdate(
+            long clanId,
+            BannerUpdateRequest bannerUpdate,
+            String successMessageKey,
+            Map<String, String> successPlaceholders
+    ) {
+        return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                clanRepository.updateClanBanner(
+                                clanId,
+                                bannerUpdate.materialName(),
+                                bannerUpdate.patternsJson()
+                        )
+                        .thenCompose(unused -> refreshClanSnapshots(clanId))
+                        .thenCompose(unused -> loadRequiredClanSnapshot(clanId))
+                        .thenCompose(after -> publishEvent(new ClanBannerUpdatedEvent(before, after))
+                                .thenCompose(eventUnused ->
+                                        publishEvent(new ClanUpdatedEvent(before, after, java.util.Set.of("banner")))
+                                )
+                                .thenApply(updatedUnused -> ActionResult.success(
+                                        successMessageKey,
+                                        successPlaceholders,
+                                        null
+                                )))
+        );
+    }
+
+    private CompletableFuture<ActionResult<List<ClanMember>>> applyDisband(
+            long clanId,
+            String successMessageKey,
+            Map<String, String> successPlaceholders
+    ) {
+        return loadRequiredClanSnapshot(clanId).thenCompose(before ->
+                clanMemberRepository.findByClanId(clanId).thenCompose(members -> {
+                    Instant deletedAt = Instant.now();
+                    ClanSnapshot deletedSnapshot = withUpdatedAt(before, deletedAt);
+                    return clanRepository.disbandClan(clanId, deletedAt).thenCompose(unused ->
+                                publishEvent(new ClanDeletedEvent(deletedSnapshot)).thenApply(eventUnused -> {
+                                    chatService.clearPlayerStates(members.stream().map(ClanMember::playerUuid).toList());
+                                    return ActionResult.success(
+                                            successMessageKey,
+                                            successPlaceholders,
+                                            members
+                                    );
+                                })
+                        );
+                })
+        );
     }
 
     private CompletableFuture<Void> refreshClanSnapshots(long clanId) {
@@ -768,5 +1063,8 @@ public final class ClanService {
         } catch (IllegalArgumentException exception) {
             return Optional.empty();
         }
+    }
+
+    private record BannerUpdateRequest(String materialName, String patternsJson) {
     }
 }

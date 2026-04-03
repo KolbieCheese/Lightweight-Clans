@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.UUID;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -200,6 +201,46 @@ class ClanServiceTest {
     }
 
     @Test
+    void adminRenameWorksWithoutMembershipUsingSlugLookup() {
+        Player president = mockPlayer("Alice");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        ActionResult<Void> result = clanService.adminRenameClan(admin, "crimson-knights", "Red Legion").join();
+
+        assertTrue(result.success());
+        assertEquals("admin.rename.success", result.messageKey());
+        assertEquals("Red Legion", clanService.getClanInfo("red-legion").join().value().clan().name());
+    }
+
+    @Test
+    void adminRenameWorksWithoutMembershipUsingDisplayNameLookup() {
+        Player president = mockPlayer("Alice");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        ActionResult<Void> result = clanService.adminRenameClan(admin, "crimson knights", "Red Legion").join();
+
+        assertTrue(result.success());
+        assertEquals("admin.rename.success", result.messageKey());
+        assertEquals("Red Legion", clanService.getClanInfo("Red Legion").join().value().clan().name());
+    }
+
+    @Test
+    void adminRenameRejectsDuplicateSlugVariation() {
+        Player alice = mockPlayer("Alice");
+        Player bob = mockPlayer("Bob");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(alice, "Crimson Knights").join().success());
+        assertTrue(clanService.createClan(bob, "Azure Guard").join().success());
+
+        ActionResult<Void> result = clanService.adminRenameClan(admin, "azure-guard", "Crimson-Knights").join();
+
+        assertFalse(result.success());
+        assertEquals("rename.name-taken", result.messageKey());
+    }
+
+    @Test
     void nonPresidentCannotUpdateTag() {
         Player president = mockPlayer("Alice");
         Player member = mockOnlinePlayer("Bob");
@@ -209,6 +250,31 @@ class ClanServiceTest {
 
         assertFalse(result.success());
         assertEquals("common.not-president", result.messageKey());
+    }
+
+    @Test
+    void adminTagWorksWithoutMembership() {
+        Player president = mockPlayer("Alice");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        ActionResult<Void> result = clanService.adminUpdateTag(admin, "Crimson Knights", "RL").join();
+
+        assertTrue(result.success());
+        assertEquals("admin.tag.success", result.messageKey());
+        assertEquals("RL", clanService.getClanInfo("crimson-knights").join().value().clan().tag());
+    }
+
+    @Test
+    void adminTagStillBlocksRestrictedValues() {
+        Player president = mockPlayer("Alice");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        ActionResult<Void> result = clanService.adminUpdateTag(admin, "Crimson Knights", "Fuk").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-tag", result.messageKey());
     }
 
     @Test
@@ -233,6 +299,31 @@ class ClanServiceTest {
 
         assertFalse(result.success());
         assertEquals("common.not-president", result.messageKey());
+    }
+
+    @Test
+    void adminColorWorksWithoutMembership() {
+        Player president = mockPlayer("Alice");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        ActionResult<Void> result = clanService.adminUpdateColor(admin, "crimson knights", "#00FF00").join();
+
+        assertTrue(result.success());
+        assertEquals("admin.color.success", result.messageKey());
+        assertEquals("#00FF00", clanService.getClanInfo("crimson-knights").join().value().clan().tagColor());
+    }
+
+    @Test
+    void adminColorStillBlocksRestrictedValues() {
+        Player president = mockPlayer("Alice");
+        CommandSender admin = mock(CommandSender.class);
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        ActionResult<Void> result = clanService.adminUpdateColor(admin, "crimson-knights", "gold").join();
+
+        assertFalse(result.success());
+        assertEquals("validation.restricted-color", result.messageKey());
     }
 
     @Test
@@ -269,6 +360,23 @@ class ClanServiceTest {
 
         assertFalse(result.success());
         assertEquals("common.not-president", result.messageKey());
+    }
+
+    @Test
+    void adminDisbandWorksWithoutMembershipAndClearsSnapshots() {
+        Player president = mockPlayer("Alice");
+        Player member = mockOnlinePlayer("Bob");
+        CommandSender admin = mock(CommandSender.class);
+        createClanWithMember(president, member, "Crimson Knights");
+
+        ActionResult<java.util.List<io.github.maste.customclans.models.ClanMember>> result =
+                clanService.adminDisbandClan(admin, "crimson-knights").join();
+
+        assertTrue(result.success());
+        assertEquals("admin.disband.success-self", result.messageKey());
+        assertTrue(chatService.cachedSnapshot(president.getUniqueId()).isEmpty());
+        assertTrue(chatService.cachedSnapshot(member.getUniqueId()).isEmpty());
+        assertFalse(clanService.getClanInfo("crimson-knights").join().success());
     }
 
     @Test
@@ -520,6 +628,31 @@ class ClanServiceTest {
 
         assertTrue(result.success());
         assertEquals("banner.set-success", result.messageKey());
+    }
+
+    @Test
+    void adminSetBannerWorksForSpecifiedClanWithoutMembership() {
+        Assumptions.assumeTrue(supportsBannerMaterialApi());
+        Player president = mockPlayer("Alice");
+        Player admin = mockPlayer("Moderator");
+        assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
+
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        when(admin.getInventory()).thenReturn(inventory);
+        ItemStack banner = mock(ItemStack.class);
+        BannerMeta bannerMeta = mock(BannerMeta.class);
+        when(inventory.getItemInMainHand()).thenReturn(banner);
+        when(banner.getAmount()).thenReturn(1);
+        when(banner.getType()).thenReturn(Material.RED_BANNER);
+        when(banner.getItemMeta()).thenReturn(bannerMeta);
+        when(bannerMeta.getPatterns()).thenReturn(List.of());
+
+        ActionResult<Void> result = clanService.adminSetBanner(admin, "Crimson Knights").join();
+
+        assertTrue(result.success());
+        assertEquals("admin.setbanner.success", result.messageKey());
+        long clanId = clanService.getClanInfo("crimson-knights").join().value().clan().id();
+        assertTrue(holder.clanRepository().findClanBanner(clanId).join().isPresent());
     }
 
     @Test

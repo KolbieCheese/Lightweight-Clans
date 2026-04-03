@@ -4,6 +4,7 @@ import io.github.maste.customclans.api.LightweightClansApi;
 import io.github.maste.customclans.commands.ClanCommand;
 import io.github.maste.customclans.commands.ClanSubcommand;
 import io.github.maste.customclans.commands.subcommands.AcceptSubcommand;
+import io.github.maste.customclans.commands.subcommands.AdminSubcommand;
 import io.github.maste.customclans.commands.subcommands.BannerSubcommand;
 import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
@@ -123,6 +124,7 @@ public final class CustomClansPlugin extends JavaPlugin {
                 new TransferSubcommand(this, messageManager, clanService, chatService),
                 new DisbandSubcommand(this, messageManager, clanService),
                 new ListSubcommand(this, messageManager, clanService),
+                new AdminSubcommand(this, messageManager, clanService),
                 new ReloadSubcommand(this, messageManager)
         );
 

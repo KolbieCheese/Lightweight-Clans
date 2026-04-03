@@ -132,13 +132,20 @@ class MessageManagerTest {
         var serializedLines = lines.stream()
                 .map(component -> PlainTextComponentSerializer.plainText().serialize(component))
                 .toList();
+        var adminLines = messageManager.componentList("help.admin-lines");
+        var serializedAdminLines = adminLines.stream()
+                .map(component -> PlainTextComponentSerializer.plainText().serialize(component))
+                .toList();
 
         assertFalse(lines.isEmpty());
         org.junit.jupiter.api.Assertions.assertTrue(
                 serializedLines.stream().anyMatch(line -> line.contains("Set your clan description"))
         );
         org.junit.jupiter.api.Assertions.assertTrue(
-                serializedLines.stream().anyMatch(line -> line.contains("/clan reload"))
+                serializedAdminLines.stream().anyMatch(line -> line.contains("/clan reload"))
+        );
+        org.junit.jupiter.api.Assertions.assertTrue(
+                serializedAdminLines.stream().anyMatch(line -> line.contains("/clan admin rename"))
         );
     }
 

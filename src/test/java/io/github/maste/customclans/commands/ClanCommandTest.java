@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 
 import io.github.maste.customclans.commands.subcommands.CreateSubcommand;
 import io.github.maste.customclans.commands.subcommands.AcceptSubcommand;
+import io.github.maste.customclans.commands.subcommands.AdminSubcommand;
 import io.github.maste.customclans.commands.subcommands.ChatSubcommand;
 import io.github.maste.customclans.commands.subcommands.ColorSubcommand;
 import io.github.maste.customclans.commands.subcommands.DenySubcommand;
@@ -333,5 +334,149 @@ class ClanCommandTest {
 
         verify(clanService).renameClan(player, "Golden Guard");
         verify(messages, never()).send(player, "errors.no-permission");
+    }
+
+    @Test
+    void nonAdminCannotUseAdminNamespace() {
+        when(sender.hasPermission("clans.admin")).thenReturn(false);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        clanCommand.onCommand(sender, mock(Command.class), "clan", new String[]{"admin", "disband", "crimson-knights"});
+
+        verify(messages).send(sender, "errors.no-permission");
+        verify(clanService, never()).adminDisbandClan(any(), anyString());
+    }
+
+    @Test
+    void adminChildPermissionIsCheckedInsideNamespace() {
+        when(sender.hasPermission("clans.admin")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.tag")).thenReturn(false);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        clanCommand.onCommand(sender, mock(Command.class), "clan", new String[]{"admin", "tag", "crimson-knights", "CK"});
+
+        verify(messages).send(sender, "errors.no-permission");
+        verify(clanService, never()).adminUpdateTag(any(), anyString(), anyString());
+    }
+
+    @Test
+    void adminSetBannerIsPlayerOnly() {
+        when(sender.hasPermission("clans.admin")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.setbanner")).thenReturn(true);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        clanCommand.onCommand(sender, mock(Command.class), "clan", new String[]{"admin", "setbanner", "crimson-knights"});
+
+        verify(messages).send(sender, "errors.player-only");
+        verify(clanService, never()).adminSetBanner(any(), anyString());
+    }
+
+    @Test
+    void adminNamespaceAppearsInRootTabCompletionOnlyForAdmins() {
+        when(sender.hasPermission("clans.use")).thenReturn(true);
+        when(sender.hasPermission("clans.admin")).thenReturn(false);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(
+                        new HelpSubcommand(plugin, messages),
+                        new AdminSubcommand(plugin, messages, clanService)
+                )
+        );
+
+        List<String> suggestions = clanCommand.onTabComplete(sender, mock(Command.class), "clan", new String[]{""});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("help"), suggestions);
+    }
+
+    @Test
+    void adminActionTabCompletionOnlyShowsPermittedActions() {
+        when(sender.hasPermission("clans.admin")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.rename")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.disband")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.setbanner")).thenReturn(true);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        List<String> suggestions = clanCommand.onTabComplete(sender, mock(Command.class), "clan", new String[]{"admin", ""});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("disband", "rename"), suggestions);
+    }
+
+    @Test
+    void adminClanCompletionSuggestsSlugOnly() {
+        when(sender.hasPermission("clans.admin")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.rename")).thenReturn(true);
+        when(clanService.suggestClanNames("crim")).thenReturn(List.of("crimson-knights"));
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        List<String> suggestions = clanCommand.onTabComplete(sender, mock(Command.class), "clan", new String[]{"admin", "rename", "crim"});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of("crimson-knights"), suggestions);
+    }
+
+    @Test
+    void adminClanCompletionReturnsNoSuggestionsForMultiTokenDisplayFragments() {
+        when(sender.hasPermission("clans.admin")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.rename")).thenReturn(true);
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        List<String> suggestions = clanCommand.onTabComplete(sender, mock(Command.class), "clan", new String[]{"admin", "rename", "Crimson", ""});
+
+        org.junit.jupiter.api.Assertions.assertEquals(List.of(), suggestions);
+    }
+
+    @Test
+    void adminRenameUsesLongestMatchingClanPrefix() {
+        when(sender.hasPermission("clans.admin")).thenReturn(true);
+        when(sender.hasPermission("clans.admin.rename")).thenReturn(true);
+        when(clanService.clanNameExists("Crimson Knights")).thenReturn(true);
+        when(clanService.adminRenameClan(sender, "Crimson Knights", "Red Legion"))
+                .thenReturn(CompletableFuture.completedFuture(ActionResult.success("admin.rename.success", null)));
+
+        ClanCommand clanCommand = new ClanCommand(
+                messages,
+                clanService,
+                List.of(new AdminSubcommand(plugin, messages, clanService))
+        );
+
+        clanCommand.onCommand(
+                sender,
+                mock(Command.class),
+                "clan",
+                new String[]{"admin", "rename", "Crimson", "Knights", "Red", "Legion"}
+        );
+
+        verify(clanService).adminRenameClan(sender, "Crimson Knights", "Red Legion");
     }
 }

@@ -29,6 +29,12 @@ usage:
   transfer: "/clan transfer <player>"
   kick: "/clan kick <player>"
   disband: "/clan disband"
+  admin: "/clan admin <rename|tag|color|setbanner|disband> ..."
+  admin-rename: "/clan admin rename <clan> <new clan name>"
+  admin-tag: "/clan admin tag <clan> <new tag>"
+  admin-color: "/clan admin color <clan> <named color|#RRGGBB>"
+  admin-setbanner: "/clan admin setbanner <clan>"
+  admin-disband: "/clan admin disband <clan>"
   reload: "/clan reload"
 
 common:
@@ -76,7 +82,14 @@ help:
     - "<yellow>/clan transfer <player></yellow><gray> - Transfer the presidency (President only).</gray>"
     - "<yellow>/clan kick <player></yellow><gray> - Remove a member from your clan (President only).</gray>"
     - "<yellow>/clan disband</yellow><gray> - Delete your clan (President only).</gray>"
-    - "<yellow>/clan reload</yellow><gray> - Reload plugin and message configuration (Admin only).</gray>"
+  admin-lines:
+    - "<gold><bold>Admin Commands</bold></gold>"
+    - "<yellow>/clan admin rename <clan> <new clan name></yellow><gray> - Force rename any clan.</gray>"
+    - "<yellow>/clan admin tag <clan> <new tag></yellow><gray> - Force change any clan tag.</gray>"
+    - "<yellow>/clan admin color <clan> <named color|#RRGGBB></yellow><gray> - Force change any clan tag color.</gray>"
+    - "<yellow>/clan admin setbanner <clan></yellow><gray> - Force set any clan banner from the banner in your main hand.</gray>"
+    - "<yellow>/clan admin disband <clan></yellow><gray> - Force disband any clan.</gray>"
+    - "<yellow>/clan reload</yellow><gray> - Reload plugin and message configuration.</gray>"
 
 create:
   success: "<prefix><green>Created clan <white><name></white> with tag <white>[<tag>]</white>.</green>"
@@ -165,6 +178,24 @@ transfer:
 disband:
   success-self: "<prefix><red>You disbanded <white><clan></white>.</red>"
   success-target: "<prefix><red><clan> was disbanded.</red>"
+
+admin:
+  unknown-action: "<prefix><red>Unknown admin action. Use <yellow>/clan admin</yellow><red> for usage.</red>"
+  lookup:
+    not-found: "<prefix><red>Sorry, no clan named <white><name></white> exists for that admin action.</red>"
+  rename:
+    success: "<prefix><green>Admin renamed clan <white><old_name></white> to <white><name></white>.</green>"
+  tag:
+    success: "<prefix><green>Admin updated <white><clan></white> tag to <white>[<tag>]</white>.</green>"
+  color:
+    success: "<prefix><green>Admin updated <white><clan></white> tag color to <white><color></white>.</green>"
+  setbanner:
+    success: "<prefix><green>Admin updated the banner for <white><clan></white>.</green>"
+    must-hold-banner: "<prefix><red>You must hold a banner in your main hand to use that admin action.</red>"
+    invalid-banner: "<prefix><red>That banner item is missing valid banner pattern data.</red>"
+  disband:
+    success-self: "<prefix><red>Admin disbanded clan <white><clan></white>.</red>"
+    target: "<prefix><red><clan> was disbanded by an administrator.</red>"
 
 list:
   header: "<gold><bold>Active Clans</bold></gold>"

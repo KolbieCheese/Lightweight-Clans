@@ -32,7 +32,22 @@ permissions:
     description: Allows clan management commands. Players must still be the clan President.
     default: true
   clans.admin:
-    description: Reserved for future admin and bypass features.
+    description: Allows access to admin clan commands and reload.
+    default: op
+  clans.admin.rename:
+    description: Allows force-renaming any clan through /clan admin rename.
+    default: op
+  clans.admin.tag:
+    description: Allows force-updating any clan tag through /clan admin tag.
+    default: op
+  clans.admin.color:
+    description: Allows force-updating any clan color through /clan admin color.
+    default: op
+  clans.admin.setbanner:
+    description: Allows force-updating any clan banner through /clan admin setbanner.
+    default: op
+  clans.admin.disband:
+    description: Allows force-disbanding any clan through /clan admin disband.
     default: op
   clans.admin.bypass.restricted-names:
     description: Bypasses restricted clan name/tag moderation checks.
