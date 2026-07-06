@@ -1,7 +1,7 @@
 name: LightweightClans
 version: ${version}
 main: io.github.maste.customclans.plugin.CustomClansPlugin
-api-version: '1.21.11'
+api-version: '26.2'
 load: POSTWORLD
 authors:
   - maste

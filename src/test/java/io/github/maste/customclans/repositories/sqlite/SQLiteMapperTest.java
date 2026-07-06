@@ -46,6 +46,18 @@ class SQLiteMapperTest {
     }
 
     @Test
+    void decodeClanBannerDataNormalizesNamespacedPatternIds() {
+        Optional<ClanBannerData> bannerData = SQLiteMapper.decodeClanBannerData(
+                1L,
+                "black_banner",
+                "[{\"pattern\":\"MINECRAFT:Stripe_Bottom\",\"color\":\"black\"}]"
+        );
+
+        assertTrue(bannerData.isPresent());
+        assertEquals("minecraft:stripe_bottom", bannerData.get().patterns().getFirst().patternId());
+    }
+
+    @Test
     void decodeClanBannerDataRejectsMalformedColor() {
         Optional<ClanBannerData> bannerData = SQLiteMapper.decodeClanBannerData(
                 1L,

@@ -1,6 +1,6 @@
 # Lightweight Clans
 
-Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Paper `1.21.11+`. It is designed for Java and Bedrock-friendly command usage with persistent SQLite storage, public clan lookup, public chat tags, private clan chat, and a single-leader MVP role model.
+Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Paper `26.2`. It is designed for Java and Bedrock-friendly command usage with persistent SQLite storage, public clan lookup, public chat tags, private clan chat, and a single-leader MVP role model.
 
 ## Features
 
@@ -338,7 +338,7 @@ Commands call services, services call repositories, and listeners delegate to se
 
 ## Building
 
-The project targets Java `21` and Gradle. Build with:
+The project targets Java `25`, Paper API `26.2`, and Gradle. Build with:
 
 ```bash
 ./gradlew build
@@ -351,6 +351,7 @@ On Windows:
 ```
 
 The shadow jar is produced without a classifier so the SQLite JDBC dependency is bundled into the final plugin jar.
+Gradle is configured with the Foojay toolchain resolver so local builds can auto-provision JDK 25 when it is not already installed.
 
 ## Versioning And Releases
 

@@ -22,6 +22,8 @@ import io.github.maste.customclans.repositories.ClanRepository;
 import io.github.maste.customclans.services.api.ApiSnapshotMapper;
 import io.github.maste.customclans.util.ActionResult;
 import io.github.maste.customclans.util.ValidationUtil;
+import io.papermc.paper.registry.RegistryAccess;
+import io.papermc.paper.registry.RegistryKey;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
@@ -31,10 +33,12 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import org.bukkit.command.CommandSender;
 import org.bukkit.event.Event;
 import org.bukkit.block.banner.PatternType;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.BannerMeta;
 import org.bukkit.block.banner.Pattern;
@@ -979,35 +983,66 @@ public final class ClanService {
         if (resolvedColor.isEmpty()) {
             return Optional.empty();
         }
-        String token = patternId;
-        int separatorIndex = token.indexOf(':');
-        if (separatorIndex >= 0 && separatorIndex + 1 < token.length()) {
-            token = token.substring(separatorIndex + 1);
+
+        Optional<PatternType> resolvedPattern = resolvePatternType(patternId);
+        return resolvedPattern.map(patternType -> new Pattern(resolvedColor.get(), patternType));
+    }
+
+    private Optional<PatternType> resolvePatternType(String patternId) {
+        String normalized = patternId == null ? "" : patternId.trim().toLowerCase(Locale.ROOT);
+        if (normalized.isBlank()) {
+            return Optional.empty();
         }
-        String normalized = token.toLowerCase(Locale.ROOT);
+
+        NamespacedKey key = NamespacedKey.fromString(normalized);
+        if (key != null) {
+            try {
+                Registry<PatternType> registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.BANNER_PATTERN);
+                PatternType patternType = registry.get(key);
+                if (patternType != null) {
+                    return Optional.of(patternType);
+                }
+            } catch (RuntimeException ignored) {
+            }
+        }
+
+        String legacyIdentifier = normalized;
+        int separatorIndex = legacyIdentifier.indexOf(':');
+        if (separatorIndex >= 0 && separatorIndex + 1 < legacyIdentifier.length()) {
+            legacyIdentifier = legacyIdentifier.substring(separatorIndex + 1);
+        }
 
         try {
             java.lang.reflect.Method byIdentifier = PatternType.class.getMethod("getByIdentifier", String.class);
-            Object resolved = byIdentifier.invoke(null, normalized);
+            Object resolved = byIdentifier.invoke(null, legacyIdentifier);
             if (resolved instanceof PatternType patternType) {
-                return Optional.of(new Pattern(resolvedColor.get(), patternType));
+                return Optional.of(patternType);
             }
-        } catch (ReflectiveOperationException ignored) {
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
         }
 
         try {
             java.lang.reflect.Method valueOf = PatternType.class.getMethod("valueOf", String.class);
-            Object resolved = valueOf.invoke(null, normalized.toUpperCase(Locale.ROOT));
+            Object resolved = valueOf.invoke(null, legacyIdentifier.toUpperCase(Locale.ROOT));
             if (resolved instanceof PatternType patternType) {
-                return Optional.of(new Pattern(resolvedColor.get(), patternType));
+                return Optional.of(patternType);
             }
-        } catch (ReflectiveOperationException ignored) {
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
         }
 
         return Optional.empty();
     }
 
     private String patternTypeId(PatternType patternType) {
+        try {
+            Registry<PatternType> registry = RegistryAccess.registryAccess().getRegistry(RegistryKey.BANNER_PATTERN);
+            NamespacedKey key = registry.getKey(patternType);
+            if (key != null) {
+                return key.toString().toLowerCase(Locale.ROOT);
+            }
+        } catch (RuntimeException ignored) {
+        }
+
         try {
             java.lang.reflect.Method getKeyMethod = PatternType.class.getMethod("getKey");
             Object key = getKeyMethod.invoke(patternType);
