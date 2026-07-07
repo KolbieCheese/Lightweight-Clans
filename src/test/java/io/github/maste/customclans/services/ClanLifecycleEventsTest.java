@@ -238,6 +238,23 @@ class ClanLifecycleEventsTest {
     }
 
     @Test
+    void disbandStillPublishesDeletedEventAndRemovesClanFromApi() {
+        Player alice = mockOnlinePlayer("Alice");
+
+        ActionResult<Clan> created = clanService.createClan(alice, "Crimson Knights").join();
+        assertTrue(created.success());
+        holder.capturedEvents.clear();
+
+        assertTrue(clanService.disbandClan(alice).join().success());
+
+        ClanDeletedEvent deletedEvent = firstEvent(ClanDeletedEvent.class);
+        assertEquals(created.value().id(), deletedEvent.getDeletedClan().id());
+        assertEquals("Crimson Knights", deletedEvent.getDeletedClan().name());
+        assertTrue(holder.verificationApi.getClanById(created.value().id()).isEmpty());
+        assertEquals(List.of(), holder.verificationApi.getAllClansAsync().join());
+    }
+
+    @Test
     void adminActionsFireLifecycleEventsAfterPersistence() {
         Player alice = mockOnlinePlayer("Alice");
         Player adminBannerHolder = mockOnlinePlayer("Moderator");

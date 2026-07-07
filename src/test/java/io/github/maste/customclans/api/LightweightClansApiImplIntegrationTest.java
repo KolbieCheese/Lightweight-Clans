@@ -1,6 +1,7 @@
 package io.github.maste.customclans.api;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -22,6 +23,7 @@ import io.github.maste.customclans.services.InviteService;
 import io.github.maste.customclans.services.api.LightweightClansApiImpl;
 import io.github.maste.customclans.util.ActionResult;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.List;
@@ -76,6 +78,30 @@ class LightweightClansApiImplIntegrationTest {
     @AfterEach
     void tearDown() {
         holder.close();
+    }
+
+    @Test
+    void emptyDatabaseExposesZeroClansThroughApi() {
+        assertEquals(List.of(), api.getAllClans());
+        assertEquals(List.of(), api.getAllClansAsync().join());
+    }
+
+    @Test
+    void missingDatabaseInitializesFreshAndExposesZeroClansThroughApi() throws Exception {
+        Path databasePath = tempDir.resolve("fresh-server").resolve("clans.db");
+        assertFalse(Files.exists(databasePath));
+
+        try (SQLiteDatabase freshDatabase = new SQLiteDatabase(databasePath, java.util.logging.Logger.getLogger("test"))) {
+            freshDatabase.initialize();
+            LightweightClansApiImpl freshApi = new LightweightClansApiImpl(
+                    new SQLiteClanRepository(freshDatabase),
+                    new SQLiteClanMemberRepository(freshDatabase)
+            );
+
+            assertTrue(Files.exists(databasePath));
+            assertEquals(List.of(), freshApi.getAllClans());
+            assertEquals(List.of(), freshApi.getAllClansAsync().join());
+        }
     }
 
     @Test

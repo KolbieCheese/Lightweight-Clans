@@ -163,6 +163,12 @@ All DTO imports for integrations should come from the single canonical export pa
 Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
 `ClanBannerSnapshot` have been removed.
 
+### Website snapshots and webhook delivery
+
+Lightweight Clans does not perform HTTP webhook delivery itself. Website integrations should resolve `LightweightClansApi` through Bukkit `ServicesManager` and let a bridge plugin such as WebhookIntegrations sign and deliver webhook requests.
+
+For the Beauty in Blocks website integration, WebhookIntegrations sends an authoritative `clan.snapshot` event during startup, manual, and periodic full syncs. That event is built from `LightweightClansApi.getAllClansAsync()`: when a fresh server has no `plugins/LightweightClans/clans.db` yet, or an initialized database contains zero clans, the API returns an empty list so WebhookIntegrations can send `"clans": []` and the website can clear stale state.
+
 ### `LightweightClansApi` method list
 
 `LightweightClansApi` includes synchronous and asynchronous read methods:

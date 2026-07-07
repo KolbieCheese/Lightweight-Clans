@@ -71,11 +71,15 @@ public interface LightweightClansApi {
 
     /**
      * Synchronous lookup that may block while reading from persistence.
+     *
+     * <p>Returns an empty list when storage is freshly initialized or contains zero clans.
      */
     List<ClanSnapshot> getAllClans();
 
     /**
      * Asynchronous lookup variant of {@link #getAllClans()} for non-blocking integrations.
+     *
+     * <p>Completes with an empty list when storage is freshly initialized or contains zero clans.
      */
     CompletableFuture<List<ClanSnapshot>> getAllClansAsync();
 
