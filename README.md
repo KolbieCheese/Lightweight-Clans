@@ -165,9 +165,29 @@ Legacy `io.github.maste.customclans.api.ClanSnapshot`, `ClanMemberSnapshot`, and
 
 ### Website snapshots and webhook delivery
 
-Lightweight Clans does not perform HTTP webhook delivery itself. Website integrations should resolve `LightweightClansApi` through Bukkit `ServicesManager` and let a bridge plugin such as WebhookIntegrations sign and deliver webhook requests.
+Lightweight Clans does not perform HTTP webhook delivery itself. It exposes clan data through Bukkit `ServicesManager` and lifecycle events; signed JSON delivery for Beauty in Blocks lives in the custom [WebhookIntegrations-BIB fork](https://github.com/KolbieCheese/WebhookIntegrations-BIB).
 
-For the Beauty in Blocks website integration, WebhookIntegrations sends an authoritative `clan.snapshot` event during startup, manual, and periodic full syncs. That event is built from `LightweightClansApi.getAllClansAsync()`: when a fresh server has no `plugins/LightweightClans/clans.db` yet, or an initialized database contains zero clans, the API returns an empty list so WebhookIntegrations can send `"clans": []` and the website can clear stale state.
+Use the fork when you want Lightweight Clans updates to reach a website or other JSON receiver:
+
+1. Install `LightweightClans` and the custom WebhookIntegrations-BIB build on the same Paper server.
+2. Start the server once so `plugins/WebhookIntegrations/config.yml` is generated.
+3. In WebhookIntegrations `config.yml`, set `clansWebhook.enabled: true`.
+4. Set `clansWebhook.endpoint` to the JSON receiver URL. For Beauty in Blocks, this is the clans webhook API endpoint, not a Discord webhook URL.
+5. Set `clansWebhook.secret` to the same shared secret your receiver uses to verify `X-Webhook-Signature`.
+6. Leave `clansWebhook.fullSyncOnStartup: true` enabled unless you have a specific reason to skip startup reconciliation.
+7. Restart the server or run `/wi reload`.
+8. Run `/wi clans status` to confirm the bridge sees the Lightweight Clans API and has an endpoint.
+9. Run `/wi clans sync` when you want to push a fresh authoritative snapshot immediately.
+
+The WebhookIntegrations-BIB bridge adds these abilities on top of the local Lightweight Clans API:
+
+- `clan.snapshot`: an authoritative replace-all event sent during startup, manual, and optional periodic full syncs.
+- `clan.sync`: one compatibility upsert per current clan after a full snapshot.
+- Live lifecycle delivery for clan create, update, delete, member join, member leave, member kick, president transfer, and banner update events.
+- Signed HTTP `POST` delivery with `X-Webhook-Source`, `X-Webhook-Event`, `X-Webhook-Timestamp`, and `X-Webhook-Signature` headers.
+- Configurable `includeMembers` and `includeBanner` payload fields, retry behavior, and optional periodic full syncs.
+
+For the Beauty in Blocks website integration, the authoritative `clan.snapshot` event is built from `LightweightClansApi.getAllClansAsync()`: when a fresh server has no `plugins/LightweightClans/clans.db` yet, or an initialized database contains zero clans, the API returns an empty list so WebhookIntegrations-BIB can send `"clans": []` and the website can clear stale state.
 
 ### `LightweightClansApi` method list
 
@@ -311,7 +331,7 @@ Full normalized sample payload:
 
 ### Current scope note
 
-Webhook or generic web-endpoint delivery is **not implemented in this step**. Integration is currently Bukkit service + Bukkit events only.
+Webhook or generic web-endpoint delivery is **not implemented inside Lightweight Clans**. This plugin's integration surface is Bukkit service + Bukkit events only; use the custom [WebhookIntegrations-BIB fork](https://github.com/KolbieCheese/WebhookIntegrations-BIB) for signed HTTP delivery.
 
 For auto-discovery, the plugin jar also includes `META-INF/snarky-outputs.json` with the stable output id `lightweightclans:clan_chat` and the exact event class name. External integrations such as Snarky Server can parse that manifest to detect Lightweight Clans support without hardcoded plugin-specific logic.
 
