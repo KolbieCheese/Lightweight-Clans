@@ -610,7 +610,6 @@ class ClanServiceTest {
 
     @Test
     void presidentCanSetBannerWithValidBannerMeta() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
 
@@ -632,7 +631,6 @@ class ClanServiceTest {
 
     @Test
     void adminSetBannerWorksForSpecifiedClanWithoutMembership() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         Player admin = mockPlayer("Moderator");
         assertTrue(clanService.createClan(president, "Crimson Knights").join().success());
@@ -657,10 +655,10 @@ class ClanServiceTest {
 
     @Test
     void nonPresidentDeniedForSetBanner() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         Player member = mockOnlinePlayer("Bob");
         createClanWithMember(president, member, "Crimson Knights");
+        holdBanner(member);
 
         ActionResult<Void> result = clanService.setClanBanner(member).join();
 
@@ -670,8 +668,8 @@ class ClanServiceTest {
 
     @Test
     void nonMemberDeniedForSetBanner() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player stranger = mockPlayer("Stranger");
+        holdBanner(stranger);
 
         ActionResult<Void> result = clanService.setClanBanner(stranger).join();
 
@@ -681,7 +679,6 @@ class ClanServiceTest {
 
     @Test
     void setBannerFailsWhenHandIsEmpty() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
         PlayerInventory inventory = mock(PlayerInventory.class);
@@ -696,7 +693,6 @@ class ClanServiceTest {
 
     @Test
     void setBannerFailsForNonBannerItem() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
         PlayerInventory inventory = mock(PlayerInventory.class);
@@ -734,7 +730,6 @@ class ClanServiceTest {
 
     @Test
     void retrieveBannerFailsWhenNoBannerSet() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player president = mockPlayer("Alice");
         clanService.createClan(president, "Crimson Knights").join();
 
@@ -746,7 +741,6 @@ class ClanServiceTest {
 
     @Test
     void nonMemberRetrieveBannerFails() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         Player stranger = mockPlayer("Stranger");
 
         ActionResult<ItemStack> result = clanService.getClanBannerItem(stranger).join();
@@ -772,6 +766,18 @@ class ClanServiceTest {
         assertEquals(Material.BLUE_BANNER, result.value().getType());
         BannerMeta bannerMeta = (BannerMeta) result.value().getItemMeta();
         assertEquals(List.of(), bannerMeta.getPatterns());
+    }
+
+    private void holdBanner(Player player) {
+        PlayerInventory inventory = mock(PlayerInventory.class);
+        ItemStack banner = mock(ItemStack.class);
+        BannerMeta bannerMeta = mock(BannerMeta.class);
+        when(player.getInventory()).thenReturn(inventory);
+        when(inventory.getItemInMainHand()).thenReturn(banner);
+        when(banner.getAmount()).thenReturn(1);
+        when(banner.getType()).thenReturn(Material.RED_BANNER);
+        when(banner.getItemMeta()).thenReturn(bannerMeta);
+        when(bannerMeta.getPatterns()).thenReturn(List.of());
     }
 
     private Player mockPlayer(String name) {

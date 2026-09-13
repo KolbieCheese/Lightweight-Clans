@@ -14,7 +14,6 @@ import java.time.Instant;
 import java.util.UUID;
 import org.bukkit.Material;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -206,7 +205,6 @@ class SQLiteRepositoryIntegrationTest {
 
     @Test
     void bannerPersistsAndReloadsWithPatternOrder() {
-        Assumptions.assumeTrue(supportsBannerMaterialApi());
         ClanCreateResult created = clanRepository.createClan(
                 UUID.randomUUID(),
                 "Alice",
@@ -222,6 +220,13 @@ class SQLiteRepositoryIntegrationTest {
                 "]";
 
         clanRepository.updateClanBanner(created.clan().id(), Material.BLUE_BANNER.name(), patternsJson).join();
+
+        var restored = clanRepository.findClanBanner(created.clan().id()).join().orElseThrow();
+        assertEquals("blue_banner", restored.materialId());
+        assertEquals(java.util.List.of(
+                new io.github.maste.customclans.models.ClanBannerData.PatternSpec("stripe_top", "black"),
+                new io.github.maste.customclans.models.ClanBannerData.PatternSpec("border", "white")
+        ), restored.patterns());
 
         try (java.sql.Connection connection = database.openConnection();
              java.sql.PreparedStatement statement = connection.prepareStatement(
@@ -286,14 +291,6 @@ class SQLiteRepositoryIntegrationTest {
             assertTrue(slugs.stream().noneMatch(String::isBlank));
         } finally {
             migratedDatabase.close();
-        }
-    }
-
-    private static boolean supportsBannerMaterialApi() {
-        try {
-            return org.bukkit.Bukkit.getServer() != null && org.bukkit.Bukkit.getItemFactory() != null;
-        } catch (Throwable throwable) {
-            return false;
         }
     }
 

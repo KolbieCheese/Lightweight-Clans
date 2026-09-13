@@ -43,9 +43,11 @@ repositories {
     }
 }
 
+def paperApiVersion = providers.gradleProperty('paperApiVersion').get()
+
 dependencies {
-    compileOnly 'io.papermc.paper:paper-api:26.2.build.+'
-    testImplementation 'io.papermc.paper:paper-api:26.2.build.+'
+    compileOnly "io.papermc.paper:paper-api:${paperApiVersion}"
+    testImplementation "io.papermc.paper:paper-api:${paperApiVersion}"
 
     implementation 'org.xerial:sqlite-jdbc:3.49.1.0'
 

@@ -364,7 +364,9 @@ Commands call services, services call repositories, and listeners delegate to se
 
 ## Building
 
-The project targets Java `25`, Paper API `26.2`, and Gradle. Build with:
+The plugin runs on Paper `26.2` with Java `25`. Compilation and tests use the same pinned stable Paper API build, configured by `paperApiVersion` in `gradle.properties`.
+
+Run the Gradle `8.10.2` wrapper with JDK `21` (as CI does); it provisions JDK `25` for compilation and tests. Build with:
 
 ```bash
 ./gradlew build
@@ -378,6 +380,16 @@ On Windows:
 
 The shadow jar is produced without a classifier so the SQLite JDBC dependency is bundled into the final plugin jar.
 Gradle is configured with the Foojay toolchain resolver so local builds can auto-provision JDK 25 when it is not already installed.
+
+To keep parallel repository builds isolated, set `GRADLE_USER_HOME` to this repository's `.gradle-user-home` directory in the current shell before building. On Windows, also set `$env:JAVA_HOME` to your JDK 21 installation if the default Java is different.
+
+## Updating To Paper 26.2
+
+Stop the server, back up `plugins/LightweightClans`, and replace the existing Lightweight Clans jar with the unclassified jar from `build/libs` (not the `-dev` or `-sources` jar). Start the Paper 26.2 server using Java 25. Keep the existing `config.yml`, `messages.yml`, and `clans.db` to retain settings, clans, members, invites, and banners.
+
+This compatibility update preserves the existing commands, permissions, chat behavior, DiscordSRV integration, and public API. Paper 26.2 includes Adventure 5; see the [Paper 26.2 release notes](https://papermc.io/news/26-2/).
+
+The automated suite covers clan operations, SQLite persistence and migrations, chat, command routing, and integrations. Two banner item reconstruction tests require a running Bukkit server/item factory and skip in the standalone suite. Before deploying, check `/clan setbanner` and `/clan banner` with a patterned banner on a test server, including retrieval after a restart, and check chat with your installed companion plugins.
 
 ## Versioning And Releases
 
