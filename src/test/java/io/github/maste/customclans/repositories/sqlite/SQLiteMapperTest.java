@@ -18,7 +18,7 @@ class SQLiteMapperTest {
         );
 
         assertTrue(bannerData.isPresent());
-        assertEquals("black", bannerData.get().patterns().getFirst().colorId());
+        assertEquals("black", bannerData.get().patterns().get(0).colorId());
     }
 
     @Test
@@ -30,7 +30,7 @@ class SQLiteMapperTest {
         );
 
         assertTrue(bannerData.isPresent());
-        assertEquals("black", bannerData.get().patterns().getFirst().colorId());
+        assertEquals("black", bannerData.get().patterns().get(0).colorId());
     }
 
     @Test
@@ -42,7 +42,7 @@ class SQLiteMapperTest {
         );
 
         assertTrue(bannerData.isPresent());
-        assertEquals("black", bannerData.get().patterns().getFirst().colorId());
+        assertEquals("black", bannerData.get().patterns().get(0).colorId());
     }
 
     @Test
@@ -54,7 +54,7 @@ class SQLiteMapperTest {
         );
 
         assertTrue(bannerData.isPresent());
-        assertEquals("minecraft:stripe_bottom", bannerData.get().patterns().getFirst().patternId());
+        assertEquals("minecraft:stripe_bottom", bannerData.get().patterns().get(0).patternId());
     }
 
     @Test

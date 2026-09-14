@@ -3,6 +3,9 @@
 build/
 out/
 run/
+run-gametest/
+logs/
+build-dual.log
 *.iml
 .idea/
 plugins/

@@ -1,6 +1,17 @@
 # Lightweight Clans
 
-Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Paper `26.2`. It is designed for Java and Bedrock-friendly command usage with persistent SQLite storage, public clan lookup, public chat tags, private clan chat, and a single-leader MVP role model.
+Lightweight Clans is a lightweight, command-only Minecraft clans plugin for Paper `26.2` and a server-side mod for Forge `1.20.1`. It provides persistent SQLite storage, public clan lookup, public chat tags, private clan chat, and a single-leader role model.
+
+## Downloads
+
+Both builds are attached to each [GitHub release](https://github.com/KolbieCheese/Lightweight-Clans/releases):
+
+| Download | Server | Java | Install folder |
+| --- | --- | --- | --- |
+| `LightweightClans-Paper-26.2-<version>.jar` | Paper 26.2 | 25 | `plugins/` |
+| `LightweightClans-Forge-1.20.1-<version>.jar` | Forge 1.20.1, 47.4.17+ | 17 | `mods/` |
+
+See the [Forge guide](forge/README.md) for configuration, storage, and platform differences. The detailed permissions, configuration, and integration documentation below describes the Paper version.
 
 ## Features
 
@@ -378,14 +389,14 @@ On Windows:
 .\gradlew.bat build
 ```
 
-The shadow jar is produced without a classifier so the SQLite JDBC dependency is bundled into the final plugin jar.
+The Paper shadow jar is `build/libs/LightweightClans-Paper-26.2-<version>.jar`, with SQLite JDBC bundled. The same build produces `forge/build/libs/LightweightClans-Forge-1.20.1-<version>.jar` with a nested SQLite dependency. Both filenames identify platform, Minecraft version, and release version. Use `:build` for Paper only or `:forge:build` for Forge only.
 Gradle is configured with the Foojay toolchain resolver so local builds can auto-provision JDK 25 when it is not already installed.
 
 To keep parallel repository builds isolated, set `GRADLE_USER_HOME` to this repository's `.gradle-user-home` directory in the current shell before building. On Windows, also set `$env:JAVA_HOME` to your JDK 21 installation if the default Java is different.
 
 ## Updating To Paper 26.2
 
-Stop the server, back up `plugins/LightweightClans`, and replace the existing Lightweight Clans jar with the unclassified jar from `build/libs` (not the `-dev` or `-sources` jar). Start the Paper 26.2 server using Java 25. Keep the existing `config.yml`, `messages.yml`, and `clans.db` to retain settings, clans, members, invites, and banners.
+Stop the server, back up `plugins/LightweightClans`, and replace the existing Lightweight Clans jar with `LightweightClans-Paper-26.2-<version>.jar` from `build/libs` (not the `-dev` or `-sources` jar). Remove the previous JAR even if its filename differs. Start the Paper 26.2 server using Java 25. Keep the existing `config.yml`, `messages.yml`, and `clans.db` to retain settings, clans, members, invites, and banners.
 
 This compatibility update preserves the existing commands, permissions, chat behavior, DiscordSRV integration, and public API. Paper 26.2 includes Adventure 5; see the [Paper 26.2 release notes](https://papermc.io/news/26-2/).
 
@@ -394,6 +405,6 @@ The automated suite covers clan operations, SQLite persistence and migrations, c
 ## Versioning And Releases
 
 - Local builds default to `pluginBaseVersion-SNAPSHOT`.
-- GitHub Actions builds automatically use `pluginBaseVersion-build.<run number>`.
-- Every push to `main` publishes a GitHub release with the shaded plugin jar attached.
+- GitHub Actions computes a numeric release version from `pluginBaseVersion` plus its run number, using the existing base-10 patch/minor rollover scheme.
+- Every successful push build on `main` publishes a GitHub release with both the Paper and Forge JARs attached.
 - To start a new release line, update `pluginBaseVersion` in `gradle.properties`.

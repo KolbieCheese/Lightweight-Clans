@@ -33,7 +33,7 @@ def pluginVersion = providers.gradleProperty('pluginVersion')
 version = pluginVersion
 
 base {
-    archivesName.set('LightweightClans')
+    archivesName.set('LightweightClans-Paper-26.2')
 }
 
 repositories {

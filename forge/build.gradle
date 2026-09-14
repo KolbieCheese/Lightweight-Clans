@@ -1,0 +1,77 @@
+plugins {
+    id 'java'
+    id 'net.minecraftforge.gradle' version '6.0.36'
+}
+
+group = rootProject.group
+version = rootProject.version
+base { archivesName = 'LightweightClans-Forge-1.20.1' }
+java { toolchain.languageVersion = JavaLanguageVersion.of(17) }
+sourceSets {
+    gameTest {
+        compileClasspath += sourceSets.main.output
+        runtimeClasspath += sourceSets.main.output
+    }
+}
+configurations {
+    gameTestImplementation.extendsFrom implementation
+    gameTestRuntimeOnly.extendsFrom runtimeOnly
+}
+minecraft {
+    mappings channel: 'official', version: '1.20.1'
+    runs {
+        server {
+            workingDirectory project.file('run')
+            args '--nogui'
+            mods { lightweightclans { source sourceSets.main } }
+        }
+        gameTestServer {
+            workingDirectory project.file('run-gametest')
+            property 'forge.enabledGameTestNamespaces', 'lightweightclans'
+            mods {
+                lightweightclans {
+                    source sourceSets.main
+                    source sourceSets.gameTest
+                }
+            }
+        }
+    }
+}
+repositories { mavenCentral() }
+jarJar.enable()
+dependencies {
+    minecraft 'net.minecraftforge:forge:1.20.1-47.4.17'
+    implementation 'org.xerial:sqlite-jdbc:3.49.1.0'
+    minecraftLibrary('org.xerial:sqlite-jdbc:3.49.1.0') { transitive = false }
+    jarJar(group: 'org.xerial', name: 'sqlite-jdbc', version: '[3.49.1.0,3.50)') {
+        jarJar.pin(it, '3.49.1.0')
+        transitive = false
+    }
+    testImplementation 'org.junit.jupiter:junit-jupiter:5.12.2'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+// Compile the platform-independent persistence implementation for Java 17 too.
+sourceSets.main.java {
+    srcDir rootProject.file('src/main/java')
+    include 'io/github/maste/customclans/forge/**'
+    include 'io/github/maste/customclans/models/**'
+    include 'io/github/maste/customclans/repositories/**'
+    include 'io/github/maste/customclans/util/ValidationUtil.java'
+}
+sourceSets.test.java {
+    srcDir rootProject.file('src/test/java')
+    include 'io/github/maste/customclans/repositories/sqlite/**'
+    include 'io/github/maste/customclans/util/ValidationUtilTest.java'
+    include 'io/github/maste/customclans/forge/**'
+}
+tasks.withType(JavaCompile).configureEach { options.encoding = 'UTF-8'; options.release = 17 }
+tasks.test { useJUnitPlatform() }
+processResources {
+    inputs.property 'version', project.version
+    filesMatching('META-INF/mods.toml') { expand(version: project.version) }
+}
+tasks.jar { archiveClassifier = 'dev' }
+tasks.jarJar { archiveClassifier = '' }
+reobf { jarJar {} }
+tasks.jarJar.finalizedBy('reobfJarJar')
+tasks.build.dependsOn tasks.jarJar

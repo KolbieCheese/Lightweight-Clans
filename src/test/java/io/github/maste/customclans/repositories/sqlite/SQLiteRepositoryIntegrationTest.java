@@ -12,7 +12,7 @@ import io.github.maste.customclans.util.ValidationUtil;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
-import org.bukkit.Material;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -219,7 +219,7 @@ class SQLiteRepositoryIntegrationTest {
                 "{\"pattern\":\"BORDER\",\"color\":\"WHITE\"}" +
                 "]";
 
-        clanRepository.updateClanBanner(created.clan().id(), Material.BLUE_BANNER.name(), patternsJson).join();
+        clanRepository.updateClanBanner(created.clan().id(), "BLUE_BANNER", patternsJson).join();
 
         var restored = clanRepository.findClanBanner(created.clan().id()).join().orElseThrow();
         assertEquals("blue_banner", restored.materialId());
@@ -239,7 +239,7 @@ class SQLiteRepositoryIntegrationTest {
             statement.setLong(1, created.clan().id());
             try (java.sql.ResultSet resultSet = statement.executeQuery()) {
                 assertTrue(resultSet.next());
-                assertEquals(Material.BLUE_BANNER.name(), resultSet.getString("banner_material"));
+                assertEquals("BLUE_BANNER", resultSet.getString("banner_material"));
                 assertEquals(patternsJson, resultSet.getString("banner_patterns_json"));
             }
         } catch (java.sql.SQLException exception) {
@@ -256,7 +256,7 @@ class SQLiteRepositoryIntegrationTest {
         migratedDatabase.initialize();
         try {
             SQLiteClanRepository migratedRepository = new SQLiteClanRepository(migratedDatabase);
-            assertEquals("crimson-knights", migratedRepository.findAll().join().getFirst().slug());
+            assertEquals("crimson-knights", migratedRepository.findAll().join().get(0).slug());
         } finally {
             migratedDatabase.close();
         }

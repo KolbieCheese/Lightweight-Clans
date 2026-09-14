@@ -1,4 +1,4 @@
-name: Build Plugin
+name: Build Paper and Forge
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     outputs:
       plugin_version: ${{ steps.version.outputs.plugin_version }}
 
@@ -50,14 +50,16 @@ jobs:
 
           echo "plugin_version=${MAJOR}.${MINOR}.${PATCH}" >> "$GITHUB_OUTPUT"
 
-      - name: Build plugin
-        run: ./gradlew build -PpluginVersion=${{ steps.version.outputs.plugin_version }}
+      - name: Build and test Paper and Forge
+        run: ./gradlew build :forge:runGameTestServer -PpluginVersion=${{ steps.version.outputs.plugin_version }}
 
       - name: Upload plugin artifact
         uses: actions/upload-artifact@v4
         with:
           name: LightweightClans-${{ steps.version.outputs.plugin_version }}
-          path: build/libs/LightweightClans-${{ steps.version.outputs.plugin_version }}.jar
+          path: |
+            build/libs/LightweightClans-Paper-26.2-${{ steps.version.outputs.plugin_version }}.jar
+            forge/build/libs/LightweightClans-Forge-1.20.1-${{ steps.version.outputs.plugin_version }}.jar
           if-no-files-found: error
           retention-days: 14
 
@@ -82,6 +84,14 @@ jobs:
           name: Lightweight Clans ${{ needs.build.outputs.plugin_version }}
           target_commitish: ${{ github.sha }}
           generate_release_notes: true
-          files: dist/LightweightClans-${{ needs.build.outputs.plugin_version }}.jar
+          body: |
+            Choose the JAR for your server platform:
+            - **Paper 26.2 / Java 25:** `LightweightClans-Paper-26.2-*.jar` goes in `plugins/`.
+            - **Forge 1.20.1 / Java 17:** `LightweightClans-Forge-1.20.1-*.jar` goes in `mods/` (Forge 47.4.17+).
+
+            The Forge version is server-side; clients do not need it. Bukkit APIs, permission nodes, and DiscordSRV integrations apply only to Paper. See the Forge guide in the repository for configuration and storage details.
+          files: |
+            dist/**/LightweightClans-Paper-26.2-${{ needs.build.outputs.plugin_version }}.jar
+            dist/**/LightweightClans-Forge-1.20.1-${{ needs.build.outputs.plugin_version }}.jar
           fail_on_unmatched_files: true
           overwrite_files: true
