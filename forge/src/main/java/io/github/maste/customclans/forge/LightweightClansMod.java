@@ -37,6 +37,8 @@ public final class LightweightClansMod {
     private SQLiteClanMemberRepository members;
     private SQLiteClanInviteRepository invites;
     private ExecutorService commands;
+    private ClanWebhook webhook;
+    private ScheduledExecutorService webhookTimer;
     private final Map<UUID, PlayerClanSnapshot> snapshots = new ConcurrentHashMap<>();
     private final Set<UUID> toggled = ConcurrentHashMap.newKeySet();
 
@@ -57,16 +59,33 @@ public final class LightweightClansMod {
         members = new SQLiteClanMemberRepository(database);
         invites = new SQLiteClanInviteRepository(database);
         commands = Executors.newSingleThreadExecutor(r -> new Thread(r, "LightweightClans-commands"));
+        try {
+            var settings = ClanWebhook.Config.load(net.minecraftforge.fml.loading.FMLPaths.CONFIGDIR.get().resolve("lightweightclans-webhook.json"));
+            if (settings.enabled) {
+                webhook = new ClanWebhook(settings, Logger.getLogger("LightweightClans")::warning);
+                webhookTimer = Executors.newSingleThreadScheduledExecutor(r -> { Thread t = new Thread(r, "LightweightClans-sync"); t.setDaemon(true); return t; });
+                webhookTimer.scheduleAtFixedRate(() -> {
+                    try { commands.execute(() -> publishWebhook(true)); }
+                    catch (RejectedExecutionException ignored) { /* Server is stopping. */ }
+                }, 0, settings.periodicFullSyncSeconds, TimeUnit.SECONDS);
+                Logger.getLogger("LightweightClans").info("Signed clan website synchronization enabled.");
+            }
+        } catch (Exception e) {
+            Logger.getLogger("LightweightClans").warning("Clan website synchronization disabled: check config/lightweightclans-webhook.json, then restart. No credentials are logged.");
+        }
+
     }
 
     @SubscribeEvent
     public void stopping(ServerStoppingEvent event) {
+        if (webhookTimer != null) webhookTimer.shutdownNow();
         if (commands != null) {
             commands.shutdown();
             try {
                 if (!commands.awaitTermination(30, TimeUnit.SECONDS)) commands.shutdownNow();
             } catch (InterruptedException e) { commands.shutdownNow(); Thread.currentThread().interrupt(); }
         }
+        if (webhook != null) webhook.close();
         if (database != null) database.close();
         snapshots.clear();
         toggled.clear();
@@ -92,6 +111,18 @@ public final class LightweightClansMod {
         event.getDispatcher().register(root);
     }
 
+    private void publishWebhook(boolean force) {
+        if (webhook == null) return;
+        try {
+            var payload = new com.google.gson.JsonArray();
+            clans.findAll().join().stream().sorted(java.util.Comparator.comparingLong(Clan::id)).forEach(c ->
+                payload.add(ClanWebhook.clan(c, members.findByClanId(c.id()).join())));
+            webhook.snapshot(payload, force);
+        } catch (Exception e) {
+            Logger.getLogger("LightweightClans").warning("Cannot construct clan website snapshot; no partial snapshot was sent.");
+        }
+    }
+
     private record Request(CommandSourceStack source, UUID id, String name, boolean admin,
                            Map<String, UUID> online, BannerCodec.Design banner) {}
 
@@ -106,7 +137,7 @@ public final class LightweightClansMod {
         var request = new Request(source, player == null ? null : player.getUUID(), source.getTextName(), source.hasPermission(2),
                 Map.copyOf(online), player == null ? null : BannerCodec.capture(player.getMainHandItem(), server));
         commands.execute(() -> {
-            try { execute(request, action, value.trim()); refreshSnapshots(request.online().values()); }
+            try { execute(request, action, value.trim()); refreshSnapshots(request.online().values()); publishWebhook(false); }
             catch (IllegalArgumentException e) { reply(request, e.getMessage()); }
             catch (Exception e) {
                 Logger.getLogger("LightweightClans").log(java.util.logging.Level.SEVERE, "Clan command failed", e);
@@ -300,7 +331,7 @@ public final class LightweightClansMod {
     public void login(PlayerEvent.PlayerLoggedInEvent event) {
         if (!(event.getEntity() instanceof ServerPlayer p) || commands == null) return;
         UUID id = p.getUUID(); String name = p.getGameProfile().getName();
-        commands.execute(() -> { members.updateLastKnownName(id, name).join(); refreshSnapshots(List.of(id)); });
+        commands.execute(() -> { members.updateLastKnownName(id, name).join(); refreshSnapshots(List.of(id)); publishWebhook(false); });
     }
     @SubscribeEvent
     public void logout(PlayerEvent.PlayerLoggedOutEvent event) {
