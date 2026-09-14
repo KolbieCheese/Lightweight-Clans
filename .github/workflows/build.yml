@@ -87,7 +87,7 @@ jobs:
           body: |
             Choose the JAR for your server platform:
             - **Paper 26.2 / Java 25:** `LightweightClans-Paper-26.2-*.jar` goes in `plugins/`.
-            - **Forge 1.20.1 / Java 17:** `LightweightClans-Forge-1.20.1-*.jar` goes in `mods/` (Forge 47.4.17+).
+            - **Forge 1.20.1 / Java 17:** `LightweightClans-Forge-1.20.1-*.jar` goes in `mods/` (Forge 47.4.0+).
 
             The Forge version is server-side; clients do not need it. Bukkit APIs, permission nodes, and DiscordSRV integrations apply only to Paper. See the Forge guide in the repository for configuration and storage details.
           files: |

@@ -9,7 +9,7 @@ Both builds are attached to each [GitHub release](https://github.com/KolbieChees
 | Download | Server | Java | Install folder |
 | --- | --- | --- | --- |
 | `LightweightClans-Paper-26.2-<version>.jar` | Paper 26.2 | 25 | `plugins/` |
-| `LightweightClans-Forge-1.20.1-<version>.jar` | Forge 1.20.1, 47.4.17+ | 17 | `mods/` |
+| `LightweightClans-Forge-1.20.1-<version>.jar` | Forge 1.20.1, 47.4.0+ | 17 | `mods/` |
 
 See the [Forge guide](forge/README.md) for configuration, storage, and platform differences. The detailed permissions, configuration, and integration documentation below describes the Paper version.
 

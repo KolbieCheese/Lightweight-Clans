@@ -10,7 +10,7 @@ displayTest="IGNORE_ALL_VERSION"
 [[dependencies.lightweightclans]]
 modId="forge"
 mandatory=true
-versionRange="[47.4.17,48)"
+versionRange="[47.4.0,48)"
 ordering="NONE"
 side="BOTH"
 [[dependencies.lightweightclans]]

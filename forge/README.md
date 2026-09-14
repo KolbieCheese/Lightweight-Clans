@@ -1,8 +1,10 @@
 # Lightweight Clans for Forge 1.20.1
 
-Install `LightweightClans-Forge-1.20.1-<version>.jar` in the server's `mods/` directory. Requires Minecraft **1.20.1**, **Forge 47.4.17 or newer in the 47.x line**, and **Java 17**. Clients do not need this server-side mod. It also works on the logical server in single-player.
+Install `LightweightClans-Forge-1.20.1-<version>.jar` in the server's `mods/` directory. Requires Minecraft **1.20.1**, **Forge 47.4.0 or newer in the 47.x line**, and **Java 17**. Clients do not need this server-side mod. It also works on the logical server in single-player.
 
 The Paper build is a separate download for Paper 26.2; put that JAR in `plugins/`.
+
+The Forge build and CI runtime tests target **47.4.0** directly on Java 17. The declared dependency range is `[47.4.0,48)`; compatibility is checked against that minimum rather than compiling against a newer Forge API.
 
 ## Gameplay
 
